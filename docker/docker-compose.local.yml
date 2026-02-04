@@ -1,0 +1,14 @@
+services:
+  ai:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - ENV=local
+      - API_URL=http://localhost:8000
+    env_file:
+      - .env.example
