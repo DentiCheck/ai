@@ -8,7 +8,8 @@
 
 | 버전 | 날짜 | 작성자 | 설명 | 상태 |
 | :--- | :--- | :--- | :--- | :--- |
-| **v2.6** | 2026-02-08 | 이정륜 | 시스템 아키텍처 다이어그램 및 파일별 상세 역할 정의 추가 | **Latest** |
+| **v2.7** | 2026-02-08 | 이정륜 | AI 소견서 생성 데모(`report_demo.py`) 실행 가이드 추가 | **Latest** |
+| **v2.6** | 2026-02-08 | 이정륜 | 시스템 아키텍처 다이어그램 및 파일별 상세 역할 정의 추가 | Superseded |
 | **v2.5** | 2026-02-08 | 이정륜 | 디시전 룰 연동 로직 및 성능 지표 심화 보강 (최종 상세화) | Superseded |
 | **v2.4** | 2026-02-08 | 이정륜 | 실시간 스트리밍 데모(UX) 구현 상세 및 프롬프트 가드레일 보강 | Superseded |
 | **v1.0** | 2026-02-07 | 이정륜 | 초기 아키텍처 설계 및 RAG 스켈레톤 구현 | Initial |
@@ -116,8 +117,9 @@ graph TD
 - **추론 성능**: Mac M1/M2 서버 기준, 실시간 스트리밍 지연 시간 **평균 1.2초** 미만.
 - **검색 정확도**: 전문 의학 지식 DB 기반으로 할루시네이션(환각) 발생률 **0%** 달성.
 
-1. **Setup**: `python3 src/denticheck_ai/pipelines/rag/ingest.py`
-2. **Run**: `python3 rag_demo.py`
+1. **Setup**: `python3 src/denticheck_ai/pipelines/rag/ingest.py` (지식 DB 구축)
+2. **Run (Chat)**: `python3 rag_demo.py` (지식 기반 챗봇 시연)
+3. **Run (Report)**: `python3 report_demo.py` (AI 소견 리포트 생성 시연)
 
 ---
 
