@@ -1,6 +1,6 @@
 # DentiCheck AI System Whitepaper
 
-이 문서는 **DentiCheck** 프로젝트의 AI 파이프라인 및 백엔드 도메인의 기술 명세와 변천사를 기록한 시스템 백서입니다.
+이 문서는 **DentiCheck** 프로젝트의 AI 파이프라인 및 백엔드 도메인의 기술 명세와 협업 가이드라인을 기록한 시스템 백서입니다.
 
 ---
 
@@ -8,16 +8,25 @@
 
 | 버전 | 날짜 | 작성자 | 설명 | 상태 |
 | :--- | :--- | :--- | :--- | :--- |
-| **v1.2** | 2026-02-08 | 이정륜 | 크롤러 명세 통합, Ollama(Llama 3.1) 연동 및 완전 로컬 RAG 시스템 완성 | **Latest** |
-| **v1.1** | 2026-02-07 | 이정륜 | 로컬 RAG 파이프라인(Milvus Lite) 구축 및 아키텍처 상세화 | Superseded |
-| **v1.0** | 2026-01-15 | 이정륜 | 초기 아키텍처 설계 및 Decision Logic 스켈레톤 구현 | Superseded |
+| **v1.3** | 2026-02-08 | 이정륜 | 팀 역할 분담, 백엔드 상세 구현 명세 및 협업 가이드라인 추가 | **Latest** |
+| **v1.2** | 2026-02-08 | 이정륜 | 크롤러 명세 통합, Ollama(Llama 3.1) 연동 및 로컬 RAG 시스템 완성 | Superseded |
 
 ---
 
-## 1. 시스템 아키텍처 (System Architecture)
+## 0. 팀 역할 분담 (Role Distribution)
 
-전체 서비스의 데이터 흐름과 컴포넌트 간 상호작용은 다음과 같습니다. 본 시스템은 보안과 비용 효율성을 위해 **100% 로컬 인퍼런스**를 지향합니다.
+- **프론트 (Figma/App)**: 이승윤
+- **AI (YOLO/Detection)**: 강진용
+- **AI (LLM/RAG/Docs)**: 이정륜
+- **AI (ML/Risk/Data)**: 하요한
+- **백엔드 (SpringBoot/GraphQL/REST)**: 페이지별 분담
+- **개발 지원 (DevOps)**: 추호연
 
+---
+
+## 1. 시스템 아키텍처 및 동작 순서
+
+### 1-1. 아키텍처 다이어그램
 ```mermaid
 graph TD
     subgraph "Client Layer"
@@ -59,131 +68,117 @@ graph TD
     API -->|Show Report| UserApp
 ```
 
----
-
-## 2. 주요 모듈별 상세 명세
-
-### 2-1. 데이터 수집 엔진 (Knowledge Collector)
-- **목적**: 서울대학교 치과병원(SNUDH)의 신뢰할 수 있는 구강 건강 정보를 수집하여 지식 베이스 구축.
-- **수집 데이터**: FAQ(145건), 치아상식(142건), 질병정보(36건) 등 총 **323건** 확보.
-- **작동 방식**: BeautifulSoup4 기반 정밀 파싱 및 안정적인 수집을 위한 **지수 백오프(Exponential Backoff)** 및 자동 재시도 로직 적용.
-- **데이터 보관**: 수집된 데이터는 `data/snudh_knowledge.json`에 보관되어 네트워크 장애와 관계없이 안정적인 파이프라인 운영 가능.
-
-### 2-2. 지식 엔진 (RAG Pipeline)
-- **목적**: 수집된 전문 지식을 바탕으로 할루시네이션 없는 AI 상담 제공.
-- **로컬 임베딩**: `jhgan/ko-sroberta-multitask` 모델을 사용하여 CPU 환경에서 텍스트를 벡터화.
-- **벡터 검색**: `Milvus Lite`를 활용해 질문과 가장 유사한 지식 조각(`Top-K`)을 거리 기반 점수와 함께 추출.
-- **신뢰도 산출**: 유클리드 거리 점수를 백분율(%)로 변환하여 사용자에게 답변의 근거 수준을 제시.
-
-### 2-3. 생성 엔진 (LLM Generation)
-- **엔진**: `Ollama` 기반 `Llama 3.1 (8B)` 모델 사용.
-- **특징**: 외부 API 비용 0원, 인터넷 연결 불필요, 데이터 외부 유출 차단.
-- **페르소나**: 친절한 치과 의사 말투를 적용하여 검색된 지식을 바탕으로 자연스러운 한국어/영어 답변 생성 가능.
-
-### 2-4. 판정 엔진 (Decision Core)
-- **위치**: `src/denticheck_ai/pipelines/decision/rules.py`
-- **로직**: 다중 모델 분석 결과(탐지 데이터 + 위험도 점수)를 룰 엔진으로 결합하여 최종 진단 리포트 구성.
+### 1-2. 파일별 동작 순서 (Workflow)
+1. **`snudh_crawler.py`**: 서울대치과병원 웹사이트에서 원천 지식 데이터를 수집하여 `data/snudh_knowledge.json`으로 저장.
+2. **`ingest.py`**: 수집된 JSON 데이터를 불러와 로컬 임베딩(`ko-sroberta`) 후 `Milvus Lite` 벡터 DB에 적재.
+3. **`retrieve.py`**: 사용자 질문을 벡터화하여 가장 유사한 지식 조각과 코사인 유사도 기반 신뢰도 점수를 검색.
+4. **`service.py`**: 검색된 지식을 `Ollama(Llama 3.1)`에 주입하여 최종적인 지능형 답변을 생성하는 서비스 레이어.
+5. **`rag_demo.py`**: 위 모든 과정을 한 번에 테스트할 수 있는 실시간 스트리밍 데모 인터페이스.
 
 ---
 
-## 3. 작업 로드맵 (Roadmap)
+## 2. 백엔드 구현 범위 및 전략
 
-### ✅ 완료된 작업 (Completed)
-- [x] 서울대치과병원 지식 데이터 전수 수집 (323건) 및 크롤러 명세화
-- [x] Milvus Lite 기반 로컬 지식 베이스 구축
-- [x] Ollama(Llama 3.1) 연동 및 RAG 통합 서비스 구현
-- [x] 지식 검색 신뢰도 산출 로직 적용
+### 2-1. 기술 스택 및 통신
+- **GraphQL**: 사용자 앱 + 관리자 콘솔 공통 API (권장)
+- **REST API**:
+    - 이미지 업로드 (Pre-signed URL 발급)
+    - LLM 스트리밍 응답 (SSE: Server-Sent Events)
+    - 내부 연동 (Spring Boot ➔ FastAPI 추론기 로컬 통신)
 
-### 🚩 [Phase 1] 필수 구현 과제 (Short-term)
-- **이미지 품질 필터링 (QC)**: OpenCV를 활용한 초점/밝기 체크 로직 실구현.
-- **YOLOv8 실제 추론 연동**: 현재 가짜 데이터인 탐지 로직을 학습된 실모델 가중치로 보완.
-- **ML 위험도 모델 연동**: 치주염 위험도 수치 분류 모델 탑재.
-
-### 🛠 [Phase 2] 시스템 고도화 과제 (Mid-term)
-- **다국어 서비스 지원**: 설정 항목에서 한국어/영어 페르소나를 유연하게 전환하는 기능.
-- **리포트 양식 정교화**: 분석 수치를 시각화하고 사용자 맞춤형 가이드를 생성하는 프롬프트 튜닝.
-- **Java-Python 통합 테스트**: 백엔드 API와의 엔드-투-엔드 연동 완성.
+### 2-2. 공통 기반 기술
+- **프로파일(profile)**: `local/dev/prod` 설정 분리
+- **DB 마이그레이션**: Flyway를 활용한 스키마 버전 관리 (`V1__init.sql` ...)
+- **에러 처리**: `ErrorCode`, `ApiException`, `GlobalExceptionHandler` 적용
+- **로깅**: `@Slf4j` + MDC 기반의 requestId 추적 및 외부 호출 로그 마스킹
 
 ---
 
-## 4. 출력 결과 규격 (Output Specification)
+## 3. 도메인별 구현 목록
 
-AI 서비스가 최종적으로 반환하는 데이터 구조는 다음과 같습니다. 프론트엔드 및 백엔드 연동 시 이 규격에 맞춰 데이터를 처리합니다.
+### 3-1. AI Check (핵심 분석 파이프라인)
+- **구현**: 업로드 URL 발급 ➔ Job 생성/상태 관리 ➔ AI 호출 ➔ 결과 통합 저장.
+- **저장**: `ai_check_job`, `ai_check_image`, `ai_check_detection`, `ai_check_risk`, `ai_check_summary`.
+- **구성**: 
+  - 방식 A: `api → ai/quality` 호출 후 부적합 시 "재촬영 안내".
+  - 방식 B: 최소 품질은 앱에서 1차, 서버에서 2차 검증.
 
-### 4-1. 최종 응답 JSON 명세 (API Spec)
-> [!NOTE]
-> 아래 구조는 향후 프론트엔드/백엔드 연동 시 사용될 **표준 응답 규격**입니다. `confidence_score`는 Milvus의 거리(Distance) 값을 기반으로 자체 산출된 신뢰도 지수(%)입니다.
+### 3-2. Knowledge Chat (지능형 상담)
+- **구현**: 세션 관리, **근거 문서 기반 답변 강제**, 상담 권장 가드레일 로직.
+- **저장**: `chat_session`, `chat_message`, `knowledge_document`.
+- **통신**: REST(SSE) 기반 실시간 스트리밍 답변 제공.
 
+### 3-3. 기타 도메인
+- **Auth/User**: JWT 기반 인증/인가, 회원 탈퇴(논리 삭제).
+- **Consent**: 단계적 약관 동의 버전 관리.
+- **Survey**: 구강 설문 응답 및 점수 산정 로직.
+- **Hospital/Review**: 공공데이터 동기화, 거리순 검색, TAG 기반 리뷰 및 평점 집계.
+- **Community**: 게시글/댓글/좋아요 및 관리자 모더레이션.
+
+---
+
+## 4. 협업 운영 및 코드 컨벤션
+
+### 4-1. 오너십 맵 (Ownership Map)
+- **AI 팀 (하요한, 강진용, 이정륜)**
+    - `denticheck-ai` 리포지토리 전체
+    - API 내 `ai_check`, `knowledge` 도메인 및 외부 연동 클라이언트 (`AiClient`, `MilvusClient`)
+- **Core 팀 (이승윤, 추호연)**
+    - API 내 `user`, `consent`, `survey`, `hospital`, `review`, `community` 도메인
+    - 보안(`Security`), DB 마이그레이션, 공공데이터 클라이언트
+
+### 4-2. 운영 경계 (Boundaries)
+- **DB 쓰기 주체**: DB 물리 쓰기는 **`denticheck-api`**만 수행합니다. AI는 추론 결과만 JSON으로 반환합니다.
+- **이미지 전달**: 서비스 간 대용량 바이너리 직접 전달 금지. `storageKey` 또는 `Pre-signed URL`만 교환합니다.
+- **통신 계약**: API ➔ AI 연동은 **REST + JSON**으로 고정하며, 스펙 변경 시 양팀 동의가 필요합니다.
+
+### 4-3. 코드 컨벤션
+- **서비스 구조**: `XxxService` 인터페이스 + `XxxServiceImpl` 구현체 분리.
+- **Dto 규칙**: GraphQL(`Input/Payload`), 내부(`Command/Result`), AI연동(`AiRequest/Response`).
+- **Lombok**: `@Getter`, `@Builder`, `@RequiredArgsConstructor` 적극 활용 (Setter 사용 금지).
+
+---
+
+## 5. 출력 결과 규격 (Output Specification)
+
+### 5-1. AI Check 최종 소견 (LLM Summary Report)
+사진 분석 결과(YOLO/ML)를 바탕으로 생성되는 종합 레포트 규격입니다.
 ```json
 {
   "status": "success",
   "data": {
-    "question": "임플란트 수술 후 술 마셔도 되나요?",
-    "answer": "임플란트 수술 후 음주는 반드시 피하셔야 합니다. 알코올은 혈액 순환을 빨라지게 하여 수술 부위의 지혈을 방해하고, 염증 발생 가능성을 크게 높입니다. 최소 2주일간은 금주하시는 것이 임플란트가 잇몸뼈에 잘 자리잡는 데 필수적입니다. 정확한 진단은 치과 방문을 직접 권장드립니다.",
-    "confidence_score": 78.5,
+    "detection_summary": "치아 28개 탐지 완료, 상악 우측 제2대구치(17번) 부근 치석 의심.",
+    "risk_level": "WARNING",
+    "risk_score": 85.2,
+    "ai_opinion": "탐지된 영상 분석 결과, 어금니 안쪽의 치석 침착이 관찰됩니다. 현재 방치 시 치주염으로 발전할 가능성이 높습니다.",
+    "dental_routine": "치간 칫솔 사용을 생활화하고, 1주일 내 스케일링을 위해 치과 방문을 권장합니다."
+  }
+}
+```
+
+### 5-2. 로컬 RAG 챗봇 답변 (Knowledge Chat Result)
+검색된 지식을 기반으로 실시간 스트리밍되는 지식 답변 규격입니다.
+```json
+{
+  "status": "success",
+  "data": {
+    "question": "교정하려면 꼭 이를 발치해야 하나요?",
+    "answer": "치아 교정 시 발치 여부는 구강 내 공간 확보 정도에 따라 달라집니다. 치아가 배열될 공간이 많이 부족한 경우...",
+    "confidence_score": 75.5,
     "sources": [
       {
-        "title": "임플란트 시술 후 주의사항",
-        "content": "수술 후 약 1~2주일간은 음주 및 흡연을 금하셔야 합니다. 이는 지혈 방해 및 염증 발생의 주요 원인이 됩니다.",
-        "distance": 0.655
-      },
-      {
-        "title": "시술 후 빠른 회복을 위한 가이드",
-        "content": "충분한 휴식과 함께 처방된 약을 복용하시고 술, 담배 등 자극적인 음식은 피하십시오.",
-        "distance": 0.812
+        "title": "교정 치료와 발치 안내",
+        "url": "https://snudh.org/knowledge/102",
+        "distance": 0.7
       }
     ]
   }
 }
 ```
 
-#### ※ 신뢰도(Confidence) 산출 공식
-본 시스템은 정규화된 벡터 환경에서 Milvus의 L2 거리 점수를 **코사인 유사도(Cosine Similarity)**로 변환하여 신뢰도를 산출합니다:
-- **공식**: $Confidence(\%) = (1 - \frac{Distance^2}{2}) \times 100$
-- **의미**: 
-    - 100%에 가까울수록 질문과 지식 베이스의 내용이 의미적으로 거의 일치함을 의미합니다.
-    - 보통 70~80% 이상의 신뢰도를 가진 문서를 기반으로 답변을 생성할 때 가장 정확도가 높습니다.
-
 ---
 
-## 5. 실행 및 테스트 가이드 (Testing & Execution)
-
-전체 RAG 시스템을 로컬 환경에서 구동하기 위한 3단계 가이드입니다.
-
-### Step 1: 로컬 LLM 환경 설정 (Ollama)
-프로젝트 구동 전, 로컬에 [Ollama](https://ollama.com/)가 설치되어 있어야 합니다.
-```bash
-# 1-1. Ollama를 통해 Llama 3.1 모델을 다운로드합니다.
-ollama pull llama3.1
-
-# 1-2. Ollama 서비스가 실행 중인지 확인합니다. (Mac의 경우 상단 메뉴바 아이콘 확인)
-```
-
-### Step 2: 지식 베이스 구축 (Data Ingestion)
-크롤링된 데이터를 기반으로 Milvus Lite 벡터 DB를 생성합니다. (최초 1회 필수)
-```bash
-# PYTHONPATH 설정 (패키지 임포트 오류 방지)
-export PYTHONPATH=$PYTHONPATH:.
-
-# 데이터 적재 스크립트 실행
-python3 src/denticheck_ai/pipelines/rag/ingest.py
-```
-> [!TIP]
-> 실행 후 `data/milvus_dental.db` 파일이 성공적으로 생성되었는지 확인하세요.
-
-### Step 3: 통합 RAG 데모 실행 (Full Pipeline Test)
-지식 검색과 AI 답변 생성이 결합된 전체 프로세스를 테스트합니다.
-```bash
-# 통합 데모 실행
-export PYTHONPATH=$PYTHONPATH:.
-python3 rag_demo.py
-```
-- **대화형 인터페이스**: 질문을 입력하면 실시간 스트리밍으로 AI 답변이 출력됩니다.
-- **종료 방법**: `exit` 또는 `q`를 입력하여 종료합니다.
-
----
-
-## 6. 협업 및 보안 지침
-- 모든 코드는 `feature/rag-ollama-integration` 브랜치에 우선 반영됩니다.
-- 보안이 필요한 환경 변수는 `.env`에서 관리하며, 외부에 절대 노출되지 않도록 주의합니다.
-- 로컬 데이터베이스 파일(`.db`) 및 로그 파일은 `.gitignore`에 등록되어 저장소에 포함되지 않습니다.
+## 6. 실행 가이드 (Execution)
+1. **Ollama 모델 다운로드**: `ollama pull llama3.1`
+2. **지식 베이스 구축**: `python3 src/denticheck_ai/pipelines/rag/ingest.py`
+3. **통합 데모 실행**: `python3 rag_demo.py` (스트리밍 답변 확인 가능)
