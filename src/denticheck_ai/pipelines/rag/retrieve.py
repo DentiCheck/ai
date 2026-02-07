@@ -83,10 +83,10 @@ class MilvusRetriever:
             results = []
             for doc, score in docs_with_scores:
                 content = doc.page_content
-                # 가우시안 커널 또는 단순 변환을 통해 거리를 신뢰도(%)로 변환 (임시 로직)
-                # Milvus의 L2 거리는 보통 0~1 사이에 있지 않을 수 있으므로 조정이 필요함
-                # 여기서는 직관적인 표시를 위해 거리값을 활용한 상대적 점수 표시
-                confidence = max(0, 100 - (score * 100)) if score < 1 else max(0, 100 / (1 + score))
+                # Milvus의 L2 거리를 코사인 유사도(Cosine Similarity)로 변환 (정규화된 벡터 기준)
+                # 공식: CosineSimilarity = 1 - (score^2 / 2)
+                cosine_sim = 1 - (score**2 / 2)
+                confidence = max(0, cosine_sim * 100)
                 
                 source_info = f"[출처: {doc.metadata.get('title', '상세정보')}] (신뢰도: {confidence:.1f}%)"
                 results.append(f"{source_info}\n{content}")
