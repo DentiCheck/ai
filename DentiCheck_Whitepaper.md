@@ -146,20 +146,44 @@ AI 서비스가 최종적으로 반환하는 데이터 구조는 다음과 같�
 
 ---
 
-## 5. 실행 가이드 (Execution)
-본 프로젝트의 핵심 기능을 로컬에서 즉시 시연할 수 있습니다.
+## 5. 실행 및 테스트 가이드 (Testing & Execution)
+
+전체 RAG 시스템을 로컬 환경에서 구동하기 위한 3단계 가이드입니다.
+
+### Step 1: 로컬 LLM 환경 설정 (Ollama)
+프로젝트 구동 전, 로컬에 [Ollama](https://ollama.com/)가 설치되어 있어야 합니다.
 ```bash
-# 1. Ollama 실행 및 모델 다운로드
+# 1-1. Ollama를 통해 Llama 3.1 모델을 다운로드합니다.
 ollama pull llama3.1
 
-# 2. 파이프라인 시연 실행
+# 1-2. Ollama 서비스가 실행 중인지 확인합니다. (Mac의 경우 상단 메뉴바 아이콘 확인)
+```
+
+### Step 2: 지식 베이스 구축 (Data Ingestion)
+크롤링된 데이터를 기반으로 Milvus Lite 벡터 DB를 생성합니다. (최초 1회 필수)
+```bash
+# PYTHONPATH 설정 (패키지 임포트 오류 방지)
+export PYTHONPATH=$PYTHONPATH:.
+
+# 데이터 적재 스크립트 실행
+python3 src/denticheck_ai/pipelines/rag/ingest.py
+```
+> [!TIP]
+> 실행 후 `data/milvus_dental.db` 파일이 성공적으로 생성되었는지 확인하세요.
+
+### Step 3: 통합 RAG 데모 실행 (Full Pipeline Test)
+지식 검색과 AI 답변 생성이 결합된 전체 프로세스를 테스트합니다.
+```bash
+# 통합 데모 실행
 export PYTHONPATH=$PYTHONPATH:.
 python3 rag_demo.py
 ```
+- **대화형 인터페이스**: 질문을 입력하면 실시간 스트리밍으로 AI 답변이 출력됩니다.
+- **종료 방법**: `exit` 또는 `q`를 입력하여 종료합니다.
 
 ---
 
-## 5. 협업 및 보안 지침
+## 6. 협업 및 보안 지침
 - 모든 코드는 `feature/rag-ollama-integration` 브랜치에 우선 반영됩니다.
 - 보안이 필요한 환경 변수는 `.env`에서 관리하며, 외부에 절대 노출되지 않도록 주의합니다.
-- 데이터 수집 상세 내역은 `src/denticheck_ai/pipelines/rag/crawler/CRAWLER_INFO.md`를 참조하십시오.
+- 로컬 데이터베이스 파일(`.db`) 및 로그 파일은 `.gitignore`에 등록되어 저장소에 포함되지 않습니다.
