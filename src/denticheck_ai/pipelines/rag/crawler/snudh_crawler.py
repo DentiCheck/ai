@@ -64,24 +64,36 @@ class SnudhCrawler:
         # 데이터 저장 폴더 생성
         os.makedirs("data", exist_ok=True)
 
-    def fetch_page(self, url: str) -> BeautifulSoup:
+    def fetch_page(self, url: str, max_retries: int = 5) -> BeautifulSoup:
         """
         URL에 요청을 보내고 BeautifulSoup 객체를 반환합니다.
-        
-        Args:
-            url (str): 대상 URL
-            
-        Returns:
-            BeautifulSoup: 파싱된 HTML 객체 (실패 시 None)
+        실패 시 최대 max_retries만큼 재시도합니다.
         """
-        try:
-            time.sleep(1) # 서버 부하 방지를 위한 대기
-            response = requests.get(url, headers=self.headers, verify=False) # SSL 경고 무시
-            response.raise_for_status()
-            return BeautifulSoup(response.text, 'html.parser')
-        except Exception as e:
-            print(f"[에러] 페이지 요청 실패 ({url}): {e}")
-            return None
+        retry_delay = 2 # 초기 재시도 대기 시간 (초)
+        
+        for attempt in range(max_retries):
+            try:
+                time.sleep(1.5) # 서버 부하 방지를 위한 기본 대기
+                response = requests.get(url, headers=self.headers, verify=False, timeout=10)
+                
+                # 503 에러 등의 경우 재시도 수행
+                if response.status_code == 503:
+                    print(f"      [알림] 서버 부하(503) 발생. {retry_delay}초 후 재시도... ({attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2 # 지수 백오프
+                    continue
+                    
+                response.raise_for_status()
+                return BeautifulSoup(response.text, 'html.parser')
+            except Exception as e:
+                print(f"      [경고] {attempt + 1}회 요청 실패: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    print(f"      [에러] 최종 요청 실패 ({url})")
+                    return None
+        return None
 
     def parse_list_page(self, soup: BeautifulSoup) -> List[str]:
         """
@@ -98,14 +110,9 @@ class SnudhCrawler:
         # SNUDH 구조 추정: <td class="left"> <a href="...">...</a> </td>
         # 또는 <div class="board_list"> ...
         
-        # 일반적인 공공기관 게시판 구조 시도
-        links = soup.select(".board_list td.subject a") # 클래스명은 실제 확인 필요
-        if not links:
-             links = soup.select(".board-list td.title a")
-        if not links:
-             # 가장 일반적인 tr > td > a 구조
-             links = soup.select("table tbody tr td a")
-
+        # SNUDH 목록 구조: table.board_list (또는 기본 table) 내의 td > a
+        links = soup.select("table tbody tr td a") 
+        
         for link in links:
             href = link.get('href')
             if href and 'selectBoardArticle.do' in href: 
@@ -134,17 +141,21 @@ class SnudhCrawler:
             Dict: {"title": ..., "content": ...}
         """
         try:
-            # 제목 추출 (보통 <th> 또는 <div class="view_title">)
-            title = soup.select_one(".board_view th.title") 
-            if not title:
-                title = soup.select_one(".view-title")
+            # 제목 추출: '제목' <th> 바로 다음 <td>
+            title_text = "제목 없음"
+            th_tags = soup.find_all("th")
+            for th in th_tags:
+                if "제목" in th.get_text():
+                    td = th.find_next_sibling("td")
+                    if td:
+                        title_text = td.get_text(strip=True)
+                        break
             
-            title_text = title.get_text(strip=True) if title else "제목 없음"
-
-            # 본문 추출 (보통 <div class="view_content">)
-            content = soup.select_one(".board_view .view_cont")
+            # 본문 추출: id="dbdata" 인 div
+            content = soup.find("div", id="dbdata")
             if not content:
-                content = soup.select_one(".view-content")
+                # 대안 선택자 (혹시 모를 구조 변경 대비)
+                content = soup.select_one(".view_cont") or soup.select_one(".board_view")
             
             content_text = content.get_text(separator="\n", strip=True) if content else ""
             

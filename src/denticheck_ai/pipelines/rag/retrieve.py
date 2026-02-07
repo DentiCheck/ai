@@ -12,7 +12,14 @@ RAG (Retrieval-Augmented Generation) 파이프라인의 핵심인 '문서 검색
 현재는 Milvus 연결 코드가 주석 처리되어 있으며(Mock), 실제 연동 시 주석을 해제해야 합니다.
 """
 
+import os
 from typing import List
+from dotenv import load_dotenv
+from langchain_milvus import Milvus
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# 환경 변수 로드
+load_dotenv()
 
 class MilvusRetriever:
     """
@@ -22,35 +29,69 @@ class MilvusRetriever:
     def __init__(self):
         """
         초기화 메서드입니다.
-        Milvus 연결 설정을 수행합니다.
+        Milvus 및 임베딩 모델 연결 설정을 수행합니다.
         """
         self.collection_name = "dental_knowledge"
-        # TODO: 실제 Milvus 연결 코드 추가
-        # connections.connect("default", host="localhost", port="19530")
-        print("MilvusRetriever 초기화 완료 (Mock Mode)")
+        
+        # 로컬 임베딩 모델 설정
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="jhgan/ko-sroberta-multitask",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
+        
+        # Milvus Lite 경로 설정 (./ 형식을 사용하여 Lite 모드 보장)
+        self.milvus_path = "./data/milvus_dental.db"
+        
+        self.vector_db = None
+        try:
+            self.vector_db = Milvus(
+                embedding_function=self.embeddings,
+                connection_args={
+                    "uri": self.milvus_path,
+                },
+                collection_name=self.collection_name
+            )
+            print(f"MilvusRetriever 초기화 완료 (Lite - {self.milvus_path})")
+        except Exception as e:
+            print(f"MilvusRetriever 연결 실패: {e}")
 
     def retrieve_context(self, query: str, top_k: int = 3) -> List[str]:
         """
         사용자 질문과 관련된 문서 내용을 검색하여 반환합니다.
 
         Args:
-            query (str): 사용자의 질문 (예: "충치는 왜 생기나요?")
-            top_k (int): 검색할 관련 문서의 개수 (기본값: 3개)
+            query (str): 사용자의 질문
+            top_k (int): 검색할 관련 문서의 개수
 
         Returns:
             List[str]: 검색된 문서 내용들의 리스트
         """
-        print(f"검색어: {query} 로 벡터 DB 검색을 시작합니다...")
+        if not self.vector_db:
+            return ["지식 베이스 연결에 실패하여 기본 답변만 제공 가능합니다."]
+
+        print(f"검색어: {query} 로 실제 벡터 DB 검색을 시작합니다...")
         
-        # TODO: 실제 임베딩 및 검색 로직 구현 필요
-        # 1. query -> vector embedding
-        # 2. collection.search(vector, top_k)
-        
-        # 현재는 테스트를 위해 가짜(Dummy) 데이터를 반환합니다.
-        mock_results = [
-            f"[참고문헌 1] {query}에 대한 답변은 구강 위생 관리 미흡이 주 원인입니다.",
-            f"[참고문헌 2] 정기적인 스케일링이 {query} 예방에 가장 효과적입니다.",
-            "[참고문헌 3] 올바른 칫솔질(회전법)이 중요합니다."
-        ]
-        
-        return mock_results
+        try:
+            # 유사도 검색 수행
+            docs = self.vector_db.similarity_search(query, k=top_k)
+            
+            # 검색 결과 가공
+            results = []
+            for doc in docs:
+                content = doc.page_content
+                source_info = f"[출처: {doc.metadata.get('title', '상세정보')}]"
+                results.append(f"{source_info}\n{content}")
+            
+            return results
+        except Exception as e:
+            print(f"검색 중 오류 발생: {e}")
+            return [f"검색 오류가 발생했습니다: {e}"]
+
+if __name__ == "__main__":
+    # 간단한 테스트 실행
+    retriever = MilvusRetriever()
+    test_query = "임플란트 수술 후 주의사항이 뭐야?"
+    contexts = retriever.retrieve_context(test_query)
+    for i, ctx in enumerate(contexts):
+        print(f"\n--- 결과 {i+1} ---\n{ctx}")
