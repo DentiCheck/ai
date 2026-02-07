@@ -29,31 +29,31 @@ def main():
     try:
         service = RagService()
     except Exception as e:
-        print(f"❌ 초기화 실패: {e}")
+        print(f" 초기화 실패: {e}")
         return
 
     while True:
-        query = input("\n🤔 질문을 입력하세요: ").strip()
+        query = input("\n ▶︎ 질문을 입력하세요: ").strip()
         
         if query.lower() in ['exit', 'q', 'quit']:
-            print("👋 테스트를 종료합니다.")
+            print("테스트를 종료합니다.")
             break
         
         if not query:
             continue
 
-        print(f"🔍 지식 기반 답변을 생성 중입니다... (Ollama 로컬 처리)")
+        print(f"지식 기반 답변을 생성 중입니다... (Ollama 로컬 처리)")
 
         # 2. AI 답변 생성 및 스트리밍 출력
         print("-" * 50)
-        print("🤖 AI 덴티체크 답변:")
+        print("AI 덴티체크 답변:")
         full_answer = ""
         for chunk in service.stream_ask(query):
             print(chunk, end="", flush=True)
             full_answer += chunk
         print("\n" + "-" * 50)
         
-        print(f"✅ 답변 생성이 완료되었습니다.")
+        print(f"답변 생성이 완료되었습니다.")
         
         print("\n" + "="*50)
 
