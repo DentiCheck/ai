@@ -43,12 +43,17 @@ def main():
             continue
 
         print(f"🔍 지식 기반 답변을 생성 중입니다... (Ollama 로컬 처리)")
-        answer = service.ask(query)
 
-        print("\n" + "·"*30)
-        print("🤖 AI 덴티체크 답변")
-        print("·"*30)
-        print(f"\n{answer}")
+        # 2. AI 답변 생성 및 스트리밍 출력
+        print("-" * 50)
+        print("🤖 AI 덴티체크 답변:")
+        full_answer = ""
+        for chunk in service.stream_ask(query):
+            print(chunk, end="", flush=True)
+            full_answer += chunk
+        print("\n" + "-" * 50)
+        
+        print(f"✅ 답변 생성이 완료되었습니다.")
         
         print("\n" + "="*50)
 

@@ -26,7 +26,7 @@ class RagService:
     비용 0원으로 로컬에서 작동하는 지능형 치과 상담 엔진입니다.
     """
     
-    def __init__(self, model_name: str = "llama3.1"):
+    def __init__(self, model_name: str = "llama3.1:latest"):
         """
         서비스를 초기화합니다. 검색기(Milvus)와 생성기(Ollama)를 설정합니다.
         
@@ -64,21 +64,35 @@ class RagService:
 
     def ask(self, question: str) -> str:
         """
-        질문에 대해 RAG를 거쳐 최종 답변을 생성합니다.
+        질문에 대해 RAG를 거쳐 최종 답변을 한꺼번에 생성합니다.
         """
         # 1. 관련 지식 검색
-        # 신뢰도 점수를 포함해서 가져오지만, LLM에는 텍스트 내용만 전달합니다.
         contexts = self.retriever.retrieve_context(question, top_k=3)
         context_text = "\n\n".join(contexts)
         
-        # 2. LLM 답변 생성
-        print(f"🤖 Ollama({self.llm.model})가 답변을 생성 중입니다...")
+        # 2. LLM 답변 생성 (Batch)
         response = self.chain.invoke({
             "context": context_text,
             "question": question
         })
         
         return response
+
+    def stream_ask(self, question: str):
+        """
+        질문에 대해 RAG 결과와 함께 답변을 한 글자씩 스트리밍으로 반환합니다.
+        결과가 길어도 즉시 응답을 확인할 수 있어 사용자 경험이 좋습니다.
+        """
+        # 1. 관련 지식 검색
+        contexts = self.retriever.retrieve_context(question, top_k=3)
+        context_text = "\n\n".join(contexts)
+        
+        # 2. LLM 답변 생성 (Stream)
+        print(f"🤖 Ollama({self.llm.model})가 답변을 실시간으로 생성 중입니다...\n")
+        return self.chain.stream({
+            "context": context_text,
+            "question": question
+        })
 
 if __name__ == "__main__":
     # 간단한 연동 테스트
