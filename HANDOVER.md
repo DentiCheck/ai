@@ -1,165 +1,104 @@
-# Lee Jung-ryun's Project Workspace (AI & Backend Domain)
+# DentiCheck AI System Whitepaper & Handover
 
-이 문서는 **이정륜(AI 개발자 / LLM & Backend 담당)** 님의 작업 환경 세팅 및 프로젝트 인수인계를 위한 가이드입니다.
-새로운 컴퓨터에서 작업을 시작할 때 이 문서를 참고하세요.
-
----
-
-## 1. 담당 역할 (Role & Responsibility)
-
-### **AI Part Developer (LLM & Backend)**
-*   **AI Engine (`denticheck-ai`)**:
-    *   **LLM/RAG**: OpenAI GPT 연동, 프롬프트 엔지니어링, RAG 파이프라인(크롤러, 임베딩, 검색) 구현
-    *   **Decision Logic**: 룰 베이스 위험도 판정(`rules.py`), 데이터 모델 설계
-*   **AI Backend (`denticheck-api`)**:
-    *   **Domain Design**: `ai_check` (검사 요청/결과), `knowledge` (지식 챗봇) 도메인 설계 및 구현
-    *   **Integration**: AI 서비스 호출 및 결과 DB 저장 로직 담당
+이 문서는 **DentiCheck** 프로젝트의 AI 파이프라인 및 백엔드 도메인의 기술 명세와 변천사를 기록한 시스템 백서입니다.
 
 ---
 
-## 2. 프로젝트 현황 (Current Progress)
+## 📑 개정 이력 (Revision History)
 
-### ✅ 완료된 작업 (2026-02-07 기준)
-#### 1. `denticheck-ai` (Python) - **RAG 파이프라인 완성** 🚀
-*   **Knowledge Base**: 서울대치과병원 데이터 **323건 전수 수집** 완료 (`snudh_knowledge.json`)
-*   **Local Embedding**: OpenAI 없이 로컬에서 작동하는 한국어 임베딩 구축 (`ko-sroberta-multitask`)
-*   **Vector DB**: **Milvus Lite** 도입 (별도 서버 없이 `./data/milvus_dental.db` 파일로 관리)
-*   **Search Engine**: 실제 지식 기반 벡터 검색 기능(`retrieve.py`) 검증 완료
-
-#### 2. `denticheck-ai` Core Logic
-*   **Decision Engine**:
-    *   `DecisionRecord`: YOLO, Risk, Survey 통합 데이터 모델 설계
-    *   `rules.py`: 탐지 결과 기반 종합 판정 로직 스켈레톤 구현
-*   **LLM Integration**:
-    *   OpenAI GPT 연동 클라이언트 및 전문 리포트 생성 프롬프트 구축
-
-#### 3. Configuration & DevOps
-*   **Git Workflow**: `feature/rag-implementation` 브랜치 운용 및 원격 저장소(`ai`) 연동
-*   **Dependency**: 로컬 임베딩 및 Milvus Lite를 위한 의존성 정리 (`pyproject.toml`)
-
-### 🚧 진행 중 / 예정 작업 (To-Do)
-1.  **[1순위] Decision Engine 정교화 (`rules.py`)** 🎯
-    *   YOLO 탐지 결과와 설문 데이터를 결합한 최종 판정 로직 실제화
-2.  **[2순위] 품질 체크 로직 구현 (`quality.py`)**
-    *   OpenCV 등을 활용하여 이미지의 분석 적합성(초점, 각도 등) 자동 판정
-3.  **[3순위] Java-Python 연동 및 통합 테스트**
-    *   API 서버(`denticheck-api`)에서 AI 서비스를 호출하고 결과를 DB에 저장하는 전 과정 검증
+| 버전 | 날짜 | 작성자 | 설명 | 상태 |
+| :--- | :--- | :--- | :--- | :--- |
+| **v1.1** | 2026-02-07 | 이정륜 | 로컬 RAG 파이프라인 완성, 상세 아키텍처 및 로드맵 상세화 | **Latest** |
+| **v1.0** | 2026-01-15 | 이정륜 | 초기 아키텍처 설계 및 Decision Logic 스켈레톤 구현 | Superseded |
 
 ---
 
-## 3. 개발 가이드 & 스펙 (Development Specs)
+## 1. 시스템 아키텍처 (System Architecture)
 
-### 3-1. AI 서비스 흐름 (Pipeline)
-1.  **이미지 업로드** (App -> S3)
-2.  **Job 생성** (API -> DB): `ai_check_job` 생성 (status: `PENDING`)
-3.  **분석 요청** (API -> AI): `POST /v1/analyze`
-4.  **AI 처리**:
-    *   `Quality Check` -> `YOLO Detection` -> `Risk Analysis` -> `LLM Report`
-5.  **결과 반환**: AI -> API (JSON) -> DB 저장
+전체 서비스의 데이터 흐름과 컴포넌트 간 상호작용은 다음과 같습니다.
 
-### 3-2. RAG (지식 챗봇)
-*   **Source**: 서울대학교치과병원 FAQ/건강정보
-*   **Flow**: 질문 -> 임베딩 -> Milvus 검색 -> GPT 생성 (with 출처)
-*   **Rule**: 할루시네이션 방지를 위해 검색된 문서 내에서만 답변 생성
+```mermaid
+graph TD
+    subgraph "Client Layer"
+        UserApp["Mobile/Web App"]
+    end
 
----
+    subgraph "Backend Layer (denticheck-api)"
+        API["Spring Boot API"]
+        DB[(PostgreSQL)]
+        S3["Storage (Images)"]
+    end
 
-## 4. 새 컴퓨터 세팅 가이드 (Setup Guide)
+    subgraph "AI Service Layer (denticheck-ai)"
+        FAST["FastAPI Gateway"]
+        subgraph "Engines"
+            QC["Quality Check (OpenCV)"]
+            DET["YOLO Detection"]
+            RISK["ML Risk Analysis"]
+            RAG["RAG Knowledge Engine"]
+            LLM["LLM Report Generator"]
+        end
+        Milvus[(Milvus Lite)]
+    end
 
-### Step 1. 필수 도구 설치
-1.  **Git / VS Code** 설치
-2.  **Java 17 (JDK)**: `JAVA_HOME` 환경 변수 설정
-3.  **Python 3.11**: **설치 시 `Add Python to PATH` 필수 체크**
-4.  **Docker Desktop** (선택 사항)
-
-### Step 2. 프로젝트 클론
-```bash
-mkdir denticheck-workspace
-cd denticheck-workspace
-git clone <denticheck-ai-repo-url>
-git clone <denticheck-api-repo-url>
-```
-
-### Step 3. Python 환경 설정 (`denticheck-ai`)
-```bash
-cd denticheck-ai
-# 가상환경 생성
-python -m venv venv
-
-# 가상환경 활성화 (Windows)
-.\venv\Scripts\Activate.ps1
-# (CMD 사용 시: venv\Scripts\activate.bat)
-
-# 의존성 설치 (로컬 임베딩 및 RAG 필수)
-pip install fastapi uvicorn openai beautifulsoup4 requests
-pip install langchain-milvus langchain-huggingface sentence-transformers milvus-lite
-```
-
-### Step 4. Java 빌드 (`denticheck-api`)
-```bash
-cd ../denticheck-api
-./gradlew clean build -x test
+    UserApp -->|Upload Image| API
+    API -->|Save Image| S3
+    API -->|Request Analysis| FAST
+    FAST --> QC
+    QC -->|Valid| DET
+    DET --> RISK
+    RISK --> RAG
+    RAG --> LLM
+    LLM -->|Final Report| FAST
+    FAST -->|JSON Response| API
+    API -->|Save Results| DB
+    API -->|Show Report| UserApp
 ```
 
 ---
 
-## 5. 프로젝트 구조 및 환경변수 (Added)
+## 2. 주요 모듈별 상세 명세
 
-### 5-1. 디렉토리 구조 (Directory Structure)
-```
-denticheck-ai
-├── src
-│   └── denticheck_ai
-│       ├── api
-│       │   ├── routers       # quality.py, detect.py, risk.py
-│       │   └── main.py       # FastAPI Entry Point
-│       └── pipelines
-│           ├── decision      # rules.py (Rule Engine)
-│           ├── llm           # client.py, prompts.py (OpenAI)
-│           └── rag           # crawler/, ingest.py, retrieve.py
-├── data                      # 크롤링 결과 저장 폴더 (snudh_knowledge.json)
-└── pyproject.toml            # Poetry 의존성 설정 파일
-```
+### 2-1. 지식 엔진 (RAG Pipeline)
+- **목적**: 전문 치과 지식을 바탕으로 할루시네이션 없는 AI 답변 생성
+- **데이터 흐름**: 질문 ➔ `ko-sroberta` 로컬 임베딩 ➔ `Milvus Lite` 로컬 검색 ➔ 검색된 컨텍스트 기반 GPT-4 리포트 생성
+- **보안**: 로컬 임베딩 모델 사용으로 검색 질의어가 외부로 유출되지 않음 (Privacy-First)
 
-### 5-2. 환경 변수 (.env)
-`denticheck-ai/.env` 파일을 생성하고 아래 내용을 입력해야 합니다.
-```ini
-# OpenAI API Key (LLM 필수)
-OPENAI_API_KEY=sk-proj-...
-
-# Milvus (RAG DB)
-MILVUS_URI=http://localhost:19530
-MILVUS_TOKEN=root:Milvus
-
-# Service Config
-LOG_LEVEL=INFO
-```
+### 2-2. 판정 엔진 (Decision Core)
+- **위치**: `src/denticheck_ai/pipelines/decision/rules.py`
+- **로직**: 다중 모델 분석 결과(객체 탐지 + 위험도 점수)를 룰 엔진으로 결합하여 "병원 방문 필요성"을 최종 판단
 
 ---
 
-## 6. 트러블슈팅 (Troubleshooting)
+## 3. 향후 작업 로드맵 (Future Roadmap)
 
-### Q1. `python` 명령어를 찾을 수 없다고 뜹니다.
-*   **원인**: Python 설치 시 `Add to PATH`를 체크하지 않았거나, 리부팅이 필요할 수 있습니다.
-*   **해결**: 설치 프로그램을 다시 실행해 `Modify` -> `Add Python to environment variables`를 체크하세요.
+작업의 성격에 따라 세 단계로 구분하여 관리합니다.
 
-### Q2. `poetry` 명령어가 실행되지 않습니다.
-*   **원인**: 전역 설치가 되어있지 않거나 권한 문제입니다.
-*   **해결**: 가상환경(`venv`)을 사용하고 `python -m pip install poetry`로 설치하거나, 위 가이드처럼 `pip install -r requirements.txt` (또는 개별 설치) 방식을 사용하세요.
+### 🚩 [Phase 1] 필수 구현 과제 (Short-term)
+- **YOLOv8 실제 추론 연동**: 현재 Mock인 탐지 로직을 학습된 실모델 가중치로 교체
+- **ML 위험도 모델 연동**: Scikit-learn 등으로 학습된 치주염 위험도 분류 모델 탑재
+- **OpenCV 품질 필터링**: 사진의 밝기, 초점, 각도를 체크하여 "다시 촬영" 가이드 제공
 
-### Q3. 크롤러 실행 시 `ModuleNotFoundError` 발생
-*   **원인**: 가상환경이 활성화되지 않았거나 라이브러리 설치가 안 된 경우입니다.
-*   **해결**: `.\venv\Scripts\Activate.ps1` 실행 후 `pip install requests beautifulsoup4`를 다시 수행하세요.
+### 🛠 [Phase 2] 시스템 고도화 과제 (Mid-term)
+- **리포트 생성 고도화**: RAG 검색 결과와 수치 데이터를 결합한 커스텀 리포트 양식 정교화
+- **비동기 처리 도입**: 분석 시간이 길어질 경우를 대비해 Celery/Redis 기반 비동기 작업 큐 도입
+- **Java-Python 데이터 동기화**: `denticheck-api`와 `denticheck-ai` 간의 인터페이스 최적화
+
+### 🧪 [Phase 3] 심화 연구 과제 (Long-term)
+- **Foxit API PDF 연동**: 생성된 AI 리포트를 공식 PDF 문서 형태로 자동 출력
+- **멀티모달 학습**: 이미지와 사용자의 주관적 통증 데이터를 동시에 학습하는 모델 연구
+- **모델 경량화**: 모바일 기기 내부(On-device)에서 일부 분석이 가능하도록 모델 최적화
 
 ---
 
-## 7. 작업 시작 (Action Item)
+## 4. 인프라 및 배포 전략
 
-가장 먼저 **크롤러가 정상 작동하는지** 확인해주세요.
+- **API/DB**: AWS ECS 또는 Linode 배포 (Docker Compose 기반)
+- **AI Service**: CPU 기반 로컬 임베딩 최적화 (Milvus Lite 활용)
+- **환경 변수**: 보안이 필요한 `OPENAI_API_KEY`는 `.env` 파일로 로컬 관리하며 저장소에서 제외
 
-```bash
-# denticheck-ai 폴더, 가상환경 켜진 상태
-python src/denticheck_ai/pipelines/rag/crawler/snudh_crawler.py
-```
-*   `data/snudh_knowledge.json` 파일 생성 여부 확인
-*   성공 시 다음 작업(`ingest.py`) 시작
+---
+
+## 5. 협업 규칙 & 문서 관리
+- 시스템 백서는 버전 **v1.1**을 기준으로 하며, 주요 아키텍처 변경 시 차기 버전을 공시함
+- 모든 코드는 `feature/` 브랜치를 통해 리뷰 후 `develop`으로 머지함

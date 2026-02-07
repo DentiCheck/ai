@@ -73,14 +73,20 @@ class MilvusRetriever:
         print(f"검색어: {query} 로 실제 벡터 DB 검색을 시작합니다...")
         
         try:
-            # 유사도 검색 수행
-            docs = self.vector_db.similarity_search(query, k=top_k)
+            # 유사도 검색 수행 (점수 포함)
+            # score는 거리값이므로 낮을수록 유사도가 높음 (L2 거리 기준)
+            docs_with_scores = self.vector_db.similarity_search_with_score(query, k=top_k)
             
             # 검색 결과 가공
             results = []
-            for doc in docs:
+            for doc, score in docs_with_scores:
                 content = doc.page_content
-                source_info = f"[출처: {doc.metadata.get('title', '상세정보')}]"
+                # 가우시안 커널 또는 단순 변환을 통해 거리를 신뢰도(%)로 변환 (임시 로직)
+                # Milvus의 L2 거리는 보통 0~1 사이에 있지 않을 수 있으므로 조정이 필요함
+                # 여기서는 직관적인 표시를 위해 거리값을 활용한 상대적 점수 표시
+                confidence = max(0, 100 - (score * 100)) if score < 1 else max(0, 100 / (1 + score))
+                
+                source_info = f"[출처: {doc.metadata.get('title', '상세정보')}] (신뢰도: {confidence:.1f}%)"
                 results.append(f"{source_info}\n{content}")
             
             return results
