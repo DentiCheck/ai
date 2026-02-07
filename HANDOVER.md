@@ -19,33 +19,31 @@
 
 ## 2. 프로젝트 현황 (Current Progress)
 
-### ✅ 완료된 작업
-#### 1. `denticheck-ai` (Python)
-*   **Decision Engine**:
-    *   `DecisionRecord`: YOLO, Risk, Survey 통합 데이터 모델
-    *   `rules.py`: 탐지 결과 기반 종합 판정 로직
-*   **API Endpoints**:
-    *   `POST /v1/quality` (품질 체크 Mock)
-    *   `POST /v1/detect` (YOLO 탐지 Mock)
-    *   `POST /v1/risk` (ML 위험도 Mock)
-*   **LLM & RAG**:
-    *   `LlmClient`: OpenAI API 연동 클라이언트
-    *   `prompts.py`: 페르소나 및 리포트 생성 프롬프트
-    *   `snudh_crawler.py`: 서울대치과병원은 크롤러 구현 (검증 필요)
+### ✅ 완료된 작업 (2026-02-07 기준)
+#### 1. `denticheck-ai` (Python) - **RAG 파이프라인 완성** 🚀
+*   **Knowledge Base**: 서울대치과병원 데이터 **323건 전수 수집** 완료 (`snudh_knowledge.json`)
+*   **Local Embedding**: OpenAI 없이 로컬에서 작동하는 한국어 임베딩 구축 (`ko-sroberta-multitask`)
+*   **Vector DB**: **Milvus Lite** 도입 (별도 서버 없이 `./data/milvus_dental.db` 파일로 관리)
+*   **Search Engine**: 실제 지식 기반 벡터 검색 기능(`retrieve.py`) 검증 완료
 
-#### 2. `denticheck-api` (Java)
-*   **Entity Design**: `AiCheckSession`, `AiImage`, `AiDetection`, `AiRiskScore`, `AiReport`
-*   **Service Layer**: `AiCheckService` 스켈레톤 구현 (Job 생성 로직)
-*   **Repository**: JPA 레포지토리 구축 완료
+#### 2. `denticheck-ai` Core Logic
+*   **Decision Engine**:
+    *   `DecisionRecord`: YOLO, Risk, Survey 통합 데이터 모델 설계
+    *   `rules.py`: 탐지 결과 기반 종합 판정 로직 스켈레톤 구현
+*   **LLM Integration**:
+    *   OpenAI GPT 연동 클라이언트 및 전문 리포트 생성 프롬프트 구축
+
+#### 3. Configuration & DevOps
+*   **Git Workflow**: `feature/rag-implementation` 브랜치 운용 및 원격 저장소(`ai`) 연동
+*   **Dependency**: 로컬 임베딩 및 Milvus Lite를 위한 의존성 정리 (`pyproject.toml`)
 
 ### 🚧 진행 중 / 예정 작업 (To-Do)
-1.  **[1순위] RAG 파이프라인 검증 (`denticheck-ai`)**
-    *   크롤러(`snudh_crawler.py`) 실행 및 데이터(`json`) 확인
-    *   데이터 적재(`ingest.py`) 구현: JSON -> Milvus DB
-    *   검색기(`retrieve.py`) 연동: 질문 -> 문서 검색
-2.  **[2순위] Java-Python 연동 (`denticheck-api`)**
-    *   `AiClient`: Java에서 Python API 호출하는 클라이언트 구현
-    *   통합 테스트: 이미지 업로드 -> 분석 -> 결과 저장 흐름 검증
+1.  **[1순위] Decision Engine 정교화 (`rules.py`)** 🎯
+    *   YOLO 탐지 결과와 설문 데이터를 결합한 최종 판정 로직 실제화
+2.  **[2순위] 품질 체크 로직 구현 (`quality.py`)**
+    *   OpenCV 등을 활용하여 이미지의 분석 적합성(초점, 각도 등) 자동 판정
+3.  **[3순위] Java-Python 연동 및 통합 테스트**
+    *   API 서버(`denticheck-api`)에서 AI 서비스를 호출하고 결과를 DB에 저장하는 전 과정 검증
 
 ---
 
@@ -92,8 +90,9 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 # (CMD 사용 시: venv\Scripts\activate.bat)
 
-# 의존성 설치
-pip install requests beautifulsoup4 fastapi uvicorn openai
+# 의존성 설치 (로컬 임베딩 및 RAG 필수)
+pip install fastapi uvicorn openai beautifulsoup4 requests
+pip install langchain-milvus langchain-huggingface sentence-transformers milvus-lite
 ```
 
 ### Step 4. Java 빌드 (`denticheck-api`)
