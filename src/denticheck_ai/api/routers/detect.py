@@ -1,21 +1,28 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter
+from pydantic import BaseModel
+from typing import List, Dict
 
-router = APIRouter()
+router = APIRouter(prefix="/v1/detect", tags=["Detection"])
 
-@router.post("")
-async def detect_lesions(file: UploadFile = File(...)):
-    # Placeholder for YOLO object detection
-    return {
-        "detections": [
-            {
-                "class": "tooth",
-                "confidence": 0.95,
-                "bbox": [100, 100, 200, 200]
-            },
-            {
-                "class": "cavity",
-                "confidence": 0.88,
-                "bbox": [150, 150, 180, 180]
-            }
-        ]
-    }
+class DetectRequest(BaseModel):
+    image_url: str
+
+class DetectionBox(BaseModel):
+    label: str # caries/calculus
+    confidence: float
+    bbox: List[float] # [x, y, w, h]
+
+class DetectResponse(BaseModel):
+    detections: List[DetectionBox]
+    summary: Dict[str, int]
+
+@router.post("", response_model=DetectResponse)
+def detect_objects(req: DetectRequest):
+    # TODO: Load YOLO model and predict
+    # Mocking
+    return DetectResponse(
+        detections=[
+            DetectionBox(label="calculus", confidence=0.88, bbox=[100, 100, 50, 50])
+        ],
+        summary={"calculus": 1, "caries": 0}
+    )

@@ -1,15 +1,24 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter
+from pydantic import BaseModel
 
-router = APIRouter()
+router = APIRouter(prefix="/v1/quality", tags=["Quality"])
 
-@router.post("/check")
-async def check_quality(file: UploadFile = File(...)):
-    # Placeholder for brightness, blur, framing checks
-    return {
-        "is_valid": True,
-        "metrics": {
-            "brightness": 0.8,
-            "blur": 0.1,
-            "framing": "ok"
-        }
-    }
+class QualityRequest(BaseModel):
+    image_url: str
+
+class QualityResponse(BaseModel):
+    status: str # pass / fail
+    blur_score: float
+    brightness_mean: float
+    message: str = "Good quality"
+
+@router.post("/check", response_model=QualityResponse)
+def check_quality(req: QualityRequest):
+    # TODO: Implement actual OpenCV logic here
+    # Mocking for initial contract
+    return QualityResponse(
+        status="pass",
+        blur_score=120.5,
+        brightness_mean=100.0,
+        message="Image is clear"
+    )

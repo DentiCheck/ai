@@ -1,0 +1,209 @@
+"""
+[파일 역할]
+서울대학교치과병원(SNUDH)의 '진료상담FAQ', '치아상식', '질병정보' 게시판을 크롤링하는 스크립트입니다.
+수집된 데이터는 RAG 시스템의 지식 베이스(Vector DB) 구축에 사용됩니다.
+
+[실행 순서]
+1. 필요한 라이브러리 설치: `pip install requests beautifulsoup4`
+2. 스크립트 실행: `python src/denticheck_ai/pipelines/rag/crawler/snudh_crawler.py`
+3. 결과 확인: `data/snudh_knowledge.json` 파일 생성됨
+
+[주의사항]
+- 사이트 구조(HTML Class/ID)가 변경되면 `parse_list_page`와 `parse_detail_page` 메서드의 selector를 수정해야 합니다.
+- 과도한 요청은 차단될 수 있으므로 `time.sleep`을 적절히 조절하세요.
+"""
+
+import requests
+from bs4 import BeautifulSoup
+import time
+import json
+import os
+from typing import List, Dict
+
+class SnudhCrawler:
+    """
+    서울대학교치과병원 웹사이트 크롤러 클래스입니다.
+    대상: FAQ, 치아상식, 질병정보 게시판
+    """
+
+    def __init__(self):
+        """
+        초기화 메서드입니다.
+        대상 URL 목록과 헤더 정보를 설정합니다.
+        """
+        self.base_url = "https://www.snudh.org"
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        
+        # 크롤링 대상 설정 (URL 패턴, 시작 페이지, 끝 페이지)
+        self.targets = [
+            # 1. 진료상담FAQ (1~15페이지)
+            {
+                "name": "FAQ",
+                "url_pattern": "https://www.snudh.org/portal/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000258&menuNo=25010000&pageIndex={page}",
+                "start_page": 1,
+                "end_page": 15
+            },
+            # 2. 치아상식 (1~15페이지 - URL 구조 추정)
+            {
+                "name": "CommonSense",
+                "url_pattern": "https://www.snudh.org/portal/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000259&menuNo=25020000&pageIndex={page}",
+                "start_page": 1,
+                "end_page": 15
+            },
+            # 3. 질병정보 (1~4페이지)
+            {
+                "name": "DiseaseInfo",
+                "url_pattern": "https://www.snudh.org/portal/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000248&menuNo=25030000&pageIndex={page}",
+                "start_page": 1,
+                "end_page": 4
+            }
+        ]
+        
+        # 데이터 저장 폴더 생성
+        os.makedirs("data", exist_ok=True)
+
+    def fetch_page(self, url: str) -> BeautifulSoup:
+        """
+        URL에 요청을 보내고 BeautifulSoup 객체를 반환합니다.
+        
+        Args:
+            url (str): 대상 URL
+            
+        Returns:
+            BeautifulSoup: 파싱된 HTML 객체 (실패 시 None)
+        """
+        try:
+            time.sleep(1) # 서버 부하 방지를 위한 대기
+            response = requests.get(url, headers=self.headers, verify=False) # SSL 경고 무시
+            response.raise_for_status()
+            return BeautifulSoup(response.text, 'html.parser')
+        except Exception as e:
+            print(f"[에러] 페이지 요청 실패 ({url}): {e}")
+            return None
+
+    def parse_list_page(self, soup: BeautifulSoup) -> List[str]:
+        """
+        목록 페이지에서 상세 페이지로 가는 링크(URL)들을 추출합니다.
+        
+        Args:
+            soup (BeautifulSoup): 목록 페이지 HTML
+            
+        Returns:
+            List[str]: 상세 페이지 URL 리스트
+        """
+        detail_urls = []
+        # 보통 게시판 목록은 <table> 형태이며, 제목은 <td class="title"> 또는 <td class="subject"> 안에 <a> 태그로 존재
+        # SNUDH 구조 추정: <td class="left"> <a href="...">...</a> </td>
+        # 또는 <div class="board_list"> ...
+        
+        # 일반적인 공공기관 게시판 구조 시도
+        links = soup.select(".board_list td.subject a") # 클래스명은 실제 확인 필요
+        if not links:
+             links = soup.select(".board-list td.title a")
+        if not links:
+             # 가장 일반적인 tr > td > a 구조
+             links = soup.select("table tbody tr td a")
+
+        for link in links:
+            href = link.get('href')
+            if href and 'selectBoardArticle.do' in href: 
+                # 상대 경로인 경우 절대 경로로 변환
+                if href.startswith('/'):
+                    full_url = self.base_url + href
+                elif href.startswith('http'):
+                    full_url = href
+                else:
+                    # javascript:fn_egov_select('...') 형태일 수도 있음 (이 경우 복잡함)
+                    # 여기서는 일반 링크(href)라고 가정
+                    full_url = self.base_url + "/portal/bbs/" + href
+                
+                detail_urls.append(full_url)
+                
+        return detail_urls
+
+    def parse_detail_page(self, soup: BeautifulSoup) -> Dict:
+        """
+        상세 페이지에서 제목과 본문 내용을 추출합니다.
+        
+        Args:
+            soup (BeautifulSoup): 상세 페이지 HTML
+            
+        Returns:
+            Dict: {"title": ..., "content": ...}
+        """
+        try:
+            # 제목 추출 (보통 <th> 또는 <div class="view_title">)
+            title = soup.select_one(".board_view th.title") 
+            if not title:
+                title = soup.select_one(".view-title")
+            
+            title_text = title.get_text(strip=True) if title else "제목 없음"
+
+            # 본문 추출 (보통 <div class="view_content">)
+            content = soup.select_one(".board_view .view_cont")
+            if not content:
+                content = soup.select_one(".view-content")
+            
+            content_text = content.get_text(separator="\n", strip=True) if content else ""
+            
+            return {
+                "title": title_text,
+                "content": content_text
+            }
+        except Exception as e:
+            print(f"[에러] 상세 페이지 파싱 실패: {e}")
+            return None
+
+    def run(self):
+        """
+        전체 크롤링 로직을 수행하고 결과를 JSON으로 저장합니다.
+        """
+        all_data = []
+        
+        for target in self.targets:
+            print(f"\n[{target['name']}] 크롤링 시작...")
+            
+            for page in range(target['start_page'], target['end_page'] + 1):
+                list_url = target['url_pattern'].format(page=page)
+                print(f"  - 페이지 {page} 처리 중: {list_url}")
+                
+                # 1. 목록 페이지 접근
+                list_soup = self.fetch_page(list_url)
+                if not list_soup: continue
+                
+                # 2. 링크 추출 (여기서 로직 수정 필요 가능성 높음 - click_link 로직 등)
+                # *중요*: SNUDH는 자바스크립트 링크(fn_egov_select)를 사용할 확률이 높습니다.
+                # 이 경우 href를 파싱해서 nttId와 bbsId를 직접 조합해야 합니다.
+                # 예: javascript:fn_egov_select('1234', 'BBSMSTR_...') -> selectBoardArticle.do?nttId=1234&bbsId=...
+                
+                # 일단은 requests로 가져온 HTML 텍스트에서 링크 패턴을 찾아봅니다.
+                # (Static parsing 한계가 있을 수 있음)
+                
+                detail_urls = self.parse_list_page(list_soup)
+                print(f"    -> {len(detail_urls)}개의 게시글 발견")
+
+                for detail_url in detail_urls:
+                    # 3. 상세 페이지 접근
+                    detail_soup = self.fetch_page(detail_url)
+                    if detail_soup:
+                        result = self.parse_detail_page(detail_soup)
+                        if result:
+                            result['source'] = target['name']
+                            result['url'] = detail_url
+                            all_data.append(result)
+        
+        # 결과 저장
+        output_path = "data/snudh_knowledge.json"
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(all_data, f, ensure_ascii=False, indent=2)
+            
+        print(f"\n[완료] 총 {len(all_data)}건의 데이터가 {output_path}에 저장되었습니다.")
+
+if __name__ == "__main__":
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    
+    crawler = SnudhCrawler()
+    crawler.run()
