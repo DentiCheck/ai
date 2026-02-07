@@ -1,16 +1,22 @@
 """
 [파일 역할]
-서울대학교치과병원(SNUDH)의 '진료상담FAQ', '치아상식', '질병정보' 게시판을 크롤링하는 스크립트입니다.
-수집된 데이터는 RAG 시스템의 지식 베이스(Vector DB) 구축에 사용됩니다.
+서울대학교치과병원(SNUDH) 웹사이트에서 RAG 시스템 구축에 필요한 치의학 지식 데이터를 수집하는 크롤러입니다.
+'진료상담FAQ', '치아상식', '질병정보' 섹션의 데이터를 자동으로 수집하여 표준 JSON 형식으로 저장합니다.
 
-[실행 순서]
-1. 필요한 라이브러리 설치: `pip install requests beautifulsoup4`
-2. 스크립트 실행: `python src/denticheck_ai/pipelines/rag/crawler/snudh_crawler.py`
-3. 결과 확인: `data/snudh_knowledge.json` 파일 생성됨
+[실행 방법]
+프로젝트 루트에서 아래 명령어를 실행합니다.
+$ export PYTHONPATH=$PYTHONPATH:.
+$ python3 src/denticheck_ai/pipelines/rag/crawler/snudh_crawler.py
 
-[주의사항]
-- 사이트 구조(HTML Class/ID)가 변경되면 `parse_list_page`와 `parse_detail_page` 메서드의 selector를 수정해야 합니다.
-- 과도한 요청은 차단될 수 있으므로 `time.sleep`을 적절히 조절하세요.
+[동작 순서]
+1. `base_url`과 수집 대상 게시판 URL 패턴을 설정합니다.
+2. 각 게시판의 목록 페이지를 순회하며 상세 게시글 링크를 추출합니다.
+3. 상세 페이지에 접속하여 [제목, 본문, 출처, URL] 데이터를 파싱합니다.
+4. 수집된 모든 데이터를 `data/snudh_knowledge.json` 파일로 저장합니다.
+
+[기술적 특징]
+- 안정성을 위한 지수 백오프(Exponential Backoff) 기반 재시도 로직 적용.
+- 서버 부하 방지를 위한 요청 간 대기 시간(time.sleep) 설정.
 """
 
 import requests

@@ -3,13 +3,15 @@
 RAG (Retrieval-Augmented Generation) 파이프라인의 핵심인 '문서 검색' 모듈입니다.
 사용자의 질문과 관련된 치과 의학 지식을 Vector DB (Milvus)에서 찾아오는 역할을 합니다.
 
-[실행 순서]
-1. 사전에 Milvus DB에 치의학 문서들이 임베딩되어 저장되어 있어야 합니다.
-2. retrieve_context() 함수에 사용자 질문을 입력합니다.
-3. 질문을 임베딩(벡터화)하여 DB에서 가장 유사한 문서 조각들을 반환합니다.
+[실행 방법]
+단독 실행하여 검색 성능을 테스트할 수 있습니다.
+$ export PYTHONPATH=$PYTHONPATH:.
+$ python3 src/denticheck_ai/pipelines/rag/retrieve.py
 
-[주의사항]
-현재는 Milvus 연결 코드가 주석 처리되어 있으며(Mock), 실제 연동 시 주석을 해제해야 합니다.
+[동작 순서]
+1. 사전에 `ingest.py`를 통해 Milvus DB에 지식이 적재되어 있어야 합니다.
+2. 질문을 임베딩(벡터화)하여 DB에서 가장 유사한 문서 조각(Top-K)을 찾습니다.
+3. 거리 점수를 계산하여 '신뢰도(%)'와 함께 관련 문서를 반환합니다.
 """
 
 import os

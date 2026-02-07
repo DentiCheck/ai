@@ -1,3 +1,18 @@
+"""
+[파일 역할]
+RAG 검색 결과와 Ollama(로컬 LLM)를 하나로 묶어 최종 답변을 생성하는 '서비스 레이어'입니다.
+검색된 지식 조각들을 바탕으로 AI가 자연스러운 문장으로 답변을 구성합니다.
+
+[실행 방법]
+1. 로컬에 Ollama가 설치되어 있고 `llama3.1` 모델이 다운로드되어 있어야 합니다.
+2. `RagService` 클래스를 인스턴스화하여 `ask(질문)` 메서드를 호출합니다.
+
+[동작 순서]
+1. `MilvusRetriever`를 통해 질문과 관련된 치과 지식을 검색합니다.
+2. 검색된 지식과 사용자 질문을 결합하여 전용 프롬프트를 구성합니다.
+3. Ollama 모델에 프롬프트를 전달하여 최종 답변 문장을 생성합니다.
+"""
+
 import os
 from typing import List
 from langchain_ollama import ChatOllama
@@ -7,10 +22,17 @@ from src.denticheck_ai.pipelines.rag.retrieve import MilvusRetriever
 
 class RagService:
     """
-    RAG 검색 결과와 Ollama(Llama 3.1)를 결합하여 최종 답변을 생성하는 서비스입니다.
+    RAG 검색 결과와 Ollama(Llama 3.1)를 결합하여 최종 지식 답변을 생성하는 통합 서비스 클래스입니다.
+    비용 0원으로 로컬에서 작동하는 지능형 치과 상담 엔진입니다.
     """
     
     def __init__(self, model_name: str = "llama3.1"):
+        """
+        서비스를 초기화합니다. 검색기(Milvus)와 생성기(Ollama)를 설정합니다.
+        
+        Args:
+            model_name (str): 사용할 Ollama 모델명. 기본값은 'llama3.1'.
+        """
         # 1. 문서 검색기 초기화
         self.retriever = MilvusRetriever()
         
