@@ -46,8 +46,11 @@
 - **GraphQL Proxy 구조**: 백엔드(Spring Boot)가 AI 엔진 전면에서 인증, 저장, API 오케스트레이션을 담당하는 구조 확립.
 - **API Spec**: `POST /v1/report/generate`를 통해 구조화된 JSON을 주고받는 규격 정의.
 ### 2-6. 백엔드 팀용 마이그레이션 가이드
-- **핵심**: 기존 단일 string 응답 방식에서 **3단 JSON 응답** 체계로 변경됨에 따라, 백엔드 DTO 및 DB 매핑 수정 필요.
-- **상세**: `docs/BACKEND_MIGRATION_GUIDE.md`에 구체적인 필드 매핑 및 액션 아이템 정리 완료.
+- **상세**: `docs/BACKEND_MIGRATION_GUIDE.md`
+
+### 2-7. PDF 생성 팀원용 가이드
+- **핵심**: AI가 생성한 텍스트(`summary`, `details`, `disclaimer`)와 원천 데이터(`Decision Record`)를 PDF 템플릿에 매핑하는 방법 정의.
+- **상세**: `docs/PDF_GENERATION_GUIDE.md` 참조.
 
 ---
 
