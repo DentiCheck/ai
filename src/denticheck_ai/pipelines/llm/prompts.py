@@ -69,35 +69,31 @@ def get_report_generation_template(language: str = "ko") -> str:
     """리포트 생성용 템플릿을 반환합니다."""
     if language == "en":
         return """
-Based on the following information, please write a professional dental opinion report.
+Based on the following structured analysis data, please write a professional dental opinion report.
 
-[Input Data]
-- Risk Level: {risk_level}
-- Discovered Problems: {detections}
-- Recommended Actions: {actions}
+[Analysis Data]
+{context}
 
 [Writing Guidelines]
 1. One-line Summary: Intuitively explain the current status.
-2. Detailed Analysis: Explain the location and status of the discovered problems.
-3. Care Guide: Specific actions for the patient to practice at home.
-4. Expert Advice: Necessity of visiting a dentist and recommendations.
+2. Detailed Analysis: Explain the location and status of the discovered problems based on YOLO and ML results.
+3. Care Guide: Specific actions for the patient to practice at home based on their survey and history.
+4. Expert Advice: Clarify the necessity of visiting a dentist based on the 'Overall Level'.
 
-Caution: DO NOT use ** symbols in the response. Use plain text only.
+Caution: DO NOT use ** symbols in the response. Use plain text only. Avoid definitive diagnostic terms.
 """
     else:
         return """
-다음 정보를 바탕으로 전문적인 치과 소견서를 작성해주세요.
+다음으로 제공되는 구조화된 분석 데이터를 바탕으로 전문적인 치과 소견서를 작성해주세요.
 
-[입력 데이터]
-- 위험도 레벨: {risk_level}
-- 발견된 문제: {detections}
-- 추천 행동: {actions}
+[분석 데이터]
+{context}
 
 [작성 가이드라인]
-1. 한 줄 요약: 현재 상태를 직관적으로 설명
-2. 상세 분석: 발견된 문제점에 대한 위치 및 상태 설명
-3. 관리 가이드: 환자가 집에서 실천할 구체적인 행동
-4. 전문가 조언: 치과 방문 필요성 및 권고 사항
+1. 한 줄 요약: 현재 상태를 직관적으로 설명 (예: 치석이 관찰되어 주의가 필요한 상태입니다.)
+2. 상세 분석: YOLO 탐지 결과와 ML 분석 결과를 바탕으로 발견된 문제점의 위치 및 상태를 설명
+3. 관리 가이드: 사용자의 설문 데이터와 히스토리를 고려하여 집에서 실천할 구체적인 관리법 제안
+4. 전문가 조언: 시스템 종합 판단 레벨(Overall Level)에 따라 치과 방문 필요성 및 긴급도 권고
 
-주의: 답변에 한자(漢字)를 절대 사용하지 말고, ** 기호도 사용하지 마세요. 순수 한글 텍스트로만 작성하세요.
+주의: 답변에 한자(漢字)를 절대 사용하지 말고, ** 기호도 사용하지 마세요. '진료'나 '소견'이라는 표현을 사용하고 확정적 '진단'은 피하세요.
 """
