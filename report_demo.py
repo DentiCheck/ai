@@ -13,33 +13,31 @@ from src.denticheck_ai.pipelines.llm.client import LlmClient
 def test_report_generation():
     client = LlmClient()
     
-    # 1. 가상의 분석 데이터 (YOLO 및 ML 엔진의 결과라고 가정)
+    # 가상의 분석 데이터
     dummy_data = {
         "risk_level": "위험 (Urgent)",
         "detections": "상악 우측 제2대구치 깊은 충치(Caries) 1건, 하악 전치부 치석(Calculus) 다량 관찰",
         "actions": "조속한 치과 방문 및 정밀 엑스레이 촬영, 충치 치료 및 스케일링 필요"
     }
 
-    print("="*50)
-    print("DentiCheck AI 전문 소견 리포트 생성 테스트")
-    print("="*50)
-    print(f"입력 데이터:")
-    print(f"- 위험도: {dummy_data['risk_level']}")
-    print(f"- 분석결과: {dummy_data['detections']}")
-    print(f"- 추천조치: {dummy_data['actions']}\n")
+    print("==================================================")
+    print("🌍 DentiCheck AI 전문 소견 리포트 다국어 테스트")
+    print("==================================================")
     
-    print("AI 의사가 소견서를 작성 중입니다...\n")
+    # 1. 한국어 리포트 생성
+    print("\n[Case 1] 한국어 소견서 생성 중...")
+    report_ko = client.generate_report(**dummy_data, language="ko")
     print("-" * 50)
-    
-    # 리포트 생성 (Markdown 기호 제거 가이드라인 적용됨)
-    report = client.generate_report(
-        risk_level=dummy_data["risk_level"],
-        detections=dummy_data["detections"],
-        actions=dummy_data["actions"]
-    )
-    
-    print(report)
+    print(report_ko)
     print("-" * 50)
+
+    # 2. 영어 리포트 생성
+    print("\n[Case 2] English Report Generating...")
+    report_en = client.generate_report(**dummy_data, language="en")
+    print("-" * 50)
+    print(report_en)
+    print("-" * 50)
+
     print("\n[테스트 완료] Markdown 기호(**) 없이 깔끔하게 출력되는지 확인하세요.")
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from src.denticheck_ai.pipelines.rag.retrieve import MilvusRetriever
+from src.denticheck_ai.pipelines.llm import prompts
 
 class RagService:
     """
@@ -37,33 +38,48 @@ class RagService:
         self.retriever = MilvusRetriever()
         
         # 2. 로컬 LLM (Ollama) 초기화
+        # Ollama 서버 주소 설정 (Docker 및 로컬 환경 대응)
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        
         # 0원에 무제한으로 사용 가능한 로컬 모델입니다.
         self.llm = ChatOllama(
             model=model_name,
+            base_url=base_url,
             temperature=0.2, # 일관된 답변을 위해 낮게 설정
         )
         
-        # 3. 프롬프트 템플릿 설정 (치과 전문가 페르소나 부여)
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """당신은 친절하고 전문적인 치과 의사 '덴티체크 점검봇'입니다.
+        self.output_parser = StrOutputParser()
+
+    def _get_chain(self, language: str = "ko"):
+        """언어별로 최적화된 프롬프트 체인을 생성합니다."""
+        system_prompt = f"""당신은 친절하고 전문적인 치과 의사 '덴티체크 점검봇'입니다.
 아래 제공된 [검색된 지식]만을 근거로 사용자의 질문에 답변하세요.
 만약 [검색된 지식]에 질문에 대한 직접적인 답이 없다면, 아는 범위 내에서 구강 건강 상식으로 답변하되 전문적인 진료는 치과 방문이 필요함을 반드시 안내하세요.
 
 [검색된 지식]
-{context}
+{{context}}
 
-답변 규칙:
-1. 한국어로 답변하세요.
-2. 친절하고 신뢰감 있는 말투를 사용하세요.
-3. **와 같은 Markdown 강조 기호를 절대로 사용하지 마세요. 텍스트로만 답변하세요.
-4. 답변 끝에는 항상 "정확한 진단은 치과 방문을 직접 권장드립니다."라는 문구를 포함하세요."""),
+{prompts.get_common_rules(language=language)}"""
+
+        # 영어일 경우 시스템 프롬프트 번역본 적용
+        if language == "en":
+            system_prompt = f"""You are a friendly and professional dentist 'DentiCheck Bot'.
+Answer the user's question based ONLY on the [Retrieved Knowledge] provided below.
+If there is no direct answer in the [Retrieved Knowledge], answer with general oral health knowledge but ALWAYS state that a dental visit is required for a professional diagnosis.
+
+[Retrieved Knowledge]
+{{context}}
+
+{prompts.get_common_rules(language=language)}"""
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
             ("human", "{question}"),
         ])
         
-        # 4. 체인 구성
-        self.chain = self.prompt | self.llm | StrOutputParser()
+        return prompt | self.llm | self.output_parser
 
-    def ask(self, question: str) -> str:
+    def ask(self, question: str, language: str = "ko") -> str:
         """
         질문에 대해 RAG를 거쳐 최종 답변을 한꺼번에 생성합니다.
         """
@@ -71,26 +87,27 @@ class RagService:
         contexts = self.retriever.retrieve_context(question, top_k=3)
         context_text = "\n\n".join(contexts)
         
-        # 2. LLM 답변 생성 (Batch)
-        response = self.chain.invoke({
+        # 2. 언어별 체인 획득 및 실행
+        chain = self._get_chain(language=language)
+        response = chain.invoke({
             "context": context_text,
             "question": question
         })
         
         return response
 
-    def stream_ask(self, question: str):
+    def stream_ask(self, question: str, language: str = "ko"):
         """
         질문에 대해 RAG 결과와 함께 답변을 한 글자씩 스트리밍으로 반환합니다.
-        결과가 길어도 즉시 응답을 확인할 수 있어 사용자 경험이 좋습니다.
         """
         # 1. 관련 지식 검색
         contexts = self.retriever.retrieve_context(question, top_k=3)
         context_text = "\n\n".join(contexts)
         
-        # 2. LLM 답변 생성 (Stream)
-        print(f"🤖 Ollama({self.llm.model})가 답변을 실시간으로 생성 중입니다...\n")
-        return self.chain.stream({
+        # 2. 언어별 체인 획득 및 스트리밍 실행
+        chain = self._get_chain(language=language)
+        print(f"🤖 Ollama({self.llm.model})가 답변({language})을 생성 중입니다...\n")
+        return chain.stream({
             "context": context_text,
             "question": question
         })

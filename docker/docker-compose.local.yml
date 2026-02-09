@@ -10,5 +10,15 @@ services:
     environment:
       - ENV=local
       - API_URL=http://localhost:8000
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434 # 로컬 호스트의 Ollama와 통신
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # 컨테이너에서 호스트 접근 허용
     env_file:
       - .env.example
+  # (선택) Ollama를 컨테이너로 띄우고 싶은 경우 아래 주석을 해제하세요.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ./data/ollama:/root/.ollama
