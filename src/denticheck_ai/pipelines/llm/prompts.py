@@ -13,14 +13,14 @@ def get_common_rules(language: str = "ko") -> str:
         return """
 [Response Rules]
 1. Answer in English kindly and professionally.
-2. For readability, NEVER use Markdown bold indicators like ** in any part of your response (including headings). Use plain text only.
+2. For readability, NEVER use Markdown bold indicators like ** in any part of your response (including titles, headings, and bullet points). Use plain text only. Example: Use 'Section 1' instead of '**Section 1**'.
 3. At the end of your response, always recommend visiting a dentist for a professional diagnosis.
 """
     else:
         return """
 [답변 규칙]
 1. 한국어로 친절하고 전문적으로 답변하세요.
-2. 가독성을 위해 **와 같은 Markdown 강조 기호를 '제목과 본문' 어디에도 절대로 사용하지 마세요. 텍스트로만 내용을 전달하세요.
+2. 가독성을 위해 **와 같은 Markdown 강조 기호를 '제목과 본문' 어디에도 절대로 사용하지 마세요. 텍스트로만 내용을 전달하세요. 예: '**제목**' 대신 '제목'이라고만 작성하세요.
 3. 답변 끝에는 전문적인 진료를 위해 치과 방문이 필요함을 가볍게 언급하세요.
 """
 

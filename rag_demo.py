@@ -32,23 +32,38 @@ def main():
         print(f" 초기화 실패: {e}")
         return
 
+    # 초기 언어 설정
+    current_lang = "ko"
+    print(f"\n🌐 현재 설정된 언어: {'한국어(ko)' if current_lang == 'ko' else 'English(en)'}")
+    print("언어를 변경하려면 'lang ko' 또는 'lang en'을 입력하세요.")
+
     while True:
-        query = input("\n ▶︎ 질문을 입력하세요: ").strip()
+        query = input(f"\n [{current_lang.upper()}] 질문을 입력하세요: ").strip()
         
         if query.lower() in ['exit', 'q', 'quit']:
             print("테스트를 종료합니다.")
             break
         
+        if query.lower().startswith('lang '):
+            new_lang = query.split(' ')[1].lower()
+            if new_lang in ['ko', 'en']:
+                current_lang = new_lang
+                print(f"✅ 언어가 {'한국어' if current_lang == 'ko' else 'English'}로 변경되었습니다.")
+                continue
+            else:
+                print("❌ 지원하지 않는 언어입니다. 'ko' 또는 'en'을 입력하세요.")
+                continue
+
         if not query:
             continue
 
-        print(f"지식 기반 답변을 생성 중입니다... (Ollama 로컬 처리)")
+        print(f"지식 기반 답변을 생성 중입니다... (Ollama 로컬 처리 / {current_lang})")
 
         # 2. AI 답변 생성 및 스트리밍 출력
         print("-" * 50)
-        print("AI 덴티체크 답변:")
+        print(f"AI 덴티체크 답변 ({current_lang}):")
         full_answer = ""
-        for chunk in service.stream_ask(query):
+        for chunk in service.stream_ask(query, language=current_lang):
             print(chunk, end="", flush=True)
             full_answer += chunk
         print("\n" + "-" * 50)
