@@ -1,3 +1,4 @@
+services:
   etcd:
     container_name: milvus-etcd
     image: quay.io/coreos/etcd:v3.5.5
@@ -14,7 +15,7 @@
     volumes:
       - ./data/etcd:/etcd
     healthcheck:
-      test: ["CMD", "etcdctl", "endpoint", "health"]
+      test: [ "CMD", "etcdctl", "endpoint", "health" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -32,7 +33,7 @@
       - ./data/minio:/export
     command: minio server /export --console-address ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -40,7 +41,7 @@
   milvus:
     container_name: milvus-standalone
     image: milvusdb/milvus:v2.4.0
-    command: ["milvus", "run", "standalone"]
+    command: [ "milvus", "run", "standalone" ]
     environment:
       - ETCD_ENDPOINTS=etcd:2379
       - MINIO_ADDRESS=minio:9000
@@ -55,10 +56,18 @@
       "minio":
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9091/healthz" ]
       interval: 30s
       timeout: 20s
       retries: 3
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./data/ollama:/root/.ollama
 
   ai:
     build:
@@ -71,7 +80,7 @@
     environment:
       - ENV=local
       - API_URL=http://localhost:8000
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
       - MILVUS_URI=http://milvus:19530
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -80,3 +89,5 @@
     depends_on:
       milvus:
         condition: service_healthy
+      ollama:
+        condition: service_started
