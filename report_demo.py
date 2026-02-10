@@ -8,37 +8,55 @@ $ export PYTHONPATH=$PYTHONPATH:.
 $ python3 report_demo.py
 """
 
+from src.denticheck_ai.api.routers.report import ReportRequest, YoloSummary, MlResult, OverallResult, RecommendedAction
 from src.denticheck_ai.pipelines.llm.client import LlmClient
 
 def test_report_generation():
     client = LlmClient()
     
-    # 가상의 분석 데이터
-    dummy_data = {
-        "risk_level": "위험 (Urgent)",
-        "detections": "상악 우측 제2대구치 깊은 충치(Caries) 1건, 하악 전치부 치석(Calculus) 다량 관찰",
-        "actions": "조속한 치과 방문 및 정밀 엑스레이 촬영, 충치 치료 및 스케일링 필요"
-    }
+    # 최신 Decision Record Projection 데이터 규격 (v2.0)
+    req = ReportRequest(
+        session_id="4a834022-2e45-422d-adad-6aa61d33cd17",
+        yolo={
+            "Calculus": YoloSummary(present=True, count=2, area_ratio=0.05, max_score=0.92),
+            "Caries": YoloSummary(present=False, count=0, area_ratio=0.0, max_score=0.0)
+        },
+        ml={
+            "Gingivitis": MlResult(prob=0.85, suspect=True),
+            "Periodontitis": MlResult(prob=0.15, suspect=False)
+        },
+        survey={
+            "Bleeding": "Yes",
+            "Pain": "No"
+        },
+        history={
+            "delta_from_last": {"CalculusCount": "+1"}
+        },
+        overall=OverallResult(
+            level="YELLOW",
+            recommended_actions=[RecommendedAction(code="D100", description="스케일링")]
+        ),
+        language="ko"
+    )
 
     print("==================================================")
-    print("🌍 DentiCheck AI 전문 소견 리포트 다국어 테스트")
+    print("🌍 DentiCheck AI 전문 소견 리포트 생성 테스트 (v2.0)")
     print("==================================================")
     
-    # 1. 한국어 리포트 생성
-    print("\n[Case 1] 한국어 소견서 생성 중...")
-    report_ko = client.generate_report(**dummy_data, language="ko")
-    print("-" * 50)
-    print(report_ko)
-    print("-" * 50)
-
-    # 2. 영어 리포트 생성
-    print("\n[Case 2] English Report Generating...")
-    report_en = client.generate_report(**dummy_data, language="en")
-    print("-" * 50)
-    print(report_en)
-    print("-" * 50)
-
-    print("\n[테스트 완료] Markdown 기호(**) 없이 깔끔하게 출력되는지 확인하세요.")
+    # 소견서 생성
+    result = client.generate_report(data=req, language=req.language)
+    
+    print("\n[PART 1: SUMMARY]")
+    print(f">> {result['summary']}")
+    
+    print("\n[PART 2: DETAILS]")
+    print(result['details'])
+    
+    print("\n[PART 3: DISCLAIMER]")
+    print(f">> {result['disclaimer']}")
+    
+    print("\n==================================================")
+    print("PDF 담당자에게 이 3개 데이터를 각각의 위치에 매핑하도록 전달하면 됩니다.")
 
 if __name__ == "__main__":
     test_report_generation()
