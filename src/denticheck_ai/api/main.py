@@ -1,12 +1,26 @@
 from fastapi import FastAPI
-from denticheck_ai.api.routers import health, quality, detect
+from fastapi.middleware.cors import CORSMiddleware
+from denticheck_ai.api.routers import chat, report
 
-app = FastAPI(title="Denticheck AI Service")
+app = FastAPI(title="DentiCheck AI Service", version="0.1.0")
 
-app.include_router(health.router, prefix="/health", tags=["health"])
-app.include_router(quality.router, prefix="/api/v1/quality", tags=["quality"])
-app.include_router(detect.router, prefix="/api/v1/detect", tags=["detect"])
+# CORS Setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register AI Role Routers
+app.include_router(chat.router)
+app.include_router(report.router)
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "denticheck-ai"}
 
 @app.get("/")
 async def root():
-    return {"message": "Denticheck AI API is running"}
+    return {"message": "Denticheck AI Service is running. Documentation: /docs"}

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Environment variables
+.env
+
+# Data and Database
+data/*.db
+data/*.sqlite
+# data/snudh_knowledge.json  # 크롤링 데이터는 협업을 위해 포함할지 선택 가능하지만, 일단 포함하겠습니다.
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
