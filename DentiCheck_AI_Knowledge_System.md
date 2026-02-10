@@ -239,7 +239,17 @@ graph TD
 
 팀원들이 Milvus Standalone 기반으로 시스템을 구동하기 위한 순서입니다.
 
-### 7-1. 환경 변수 설정
+### 7-1. 필수 소프트웨어 설치
+- **Docker Desktop**: Milvus 서버 구동용
+- **Ollama**: 로컬 LLM(llama3.1) 실행용 ([다운로드](https://ollama.com))
+
+### 7-2. Ollama 모델 준비
+Ollama 설치 후, 검색 상담에 필요한 모델을 미리 다운로드합니다.
+```bash
+ollama pull llama3.1
+```
+
+### 7-3. 환경 변수 설정
 `.env.example` 파일을 복사하여 `.env` 파일을 생성하고, Milvus 서버 주소를 확인합니다.
 ```bash
 cp .env.example .env
