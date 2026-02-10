@@ -240,16 +240,23 @@ graph TD
 팀원들이 Milvus Standalone 기반으로 시스템을 구동하기 위한 순서입니다.
 
 ### 7-1. 필수 소프트웨어 설치
-- **Docker Desktop**: Milvus 서버 구동용
-- **Ollama**: 로컬 LLM(llama3.1) 실행용 ([다운로드](https://ollama.com))
+- **Docker Desktop**: Milvus 및 Ollama 서버 구동용
 
-### 7-2. Ollama 모델 준비
-Ollama 설치 후, 검색 상담에 필요한 모델을 미리 다운로드합니다.
+### 7-2. 인프라 구동 (Docker)
+Docker Compose를 사용하여 Milvus(Standalone)와 Ollama를 포함한 전체 AI 스택을 실행합니다.
 ```bash
-ollama pull llama3.1
+# 모든 서비스(Milvus, Etcd, Minio, Ollama, AI) 백그라운드 실행
+docker-compose -f docker/docker-compose.local.yml up -d
 ```
 
-### 7-3. 환경 변수 설정
+### 7-3. Ollama 모델 준비
+컨테이너 내의 Ollama에 접속하여 검색 상담에 필요한 모델을 다운로드합니다.
+```bash
+# 컨테이너 내에서 모델 다운로드
+docker exec -it ollama ollama pull llama3.1
+```
+
+### 7-4. 환경 변수 설정
 `.env.example` 파일을 복사하여 `.env` 파일을 생성하고, Milvus 서버 주소를 확인합니다.
 ```bash
 cp .env.example .env
