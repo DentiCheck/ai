@@ -34,7 +34,7 @@
 - **수집 전략**: Throttling(1.5초 간격)과 Exponential Backoff를 적용한 지능형 크롤러 구현.
 - **저장 및 검색**: 
     - 중간 데이터를 JSON 파일로 관리하여 데이터 신뢰성 검토 단계 확보.
-    - Milvus Lite를 이용한 벡터 인덱싱 및 코사인 유사도 기반 시맨틱 검색 구현.
+    - Milvus Standalone을 이용한 벡터 인덱싱 및 코사인 유사도 기반 시맨틱 검색 구현 (Docker Compose 기반).
 - **UX**: Generator 기반의 토큰 스트리밍 기술로 대기 시간 최소화.
 
 ### 2-4. 데이터베이스 및 스키마 설계 (`docs/`)

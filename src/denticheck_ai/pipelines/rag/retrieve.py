@@ -10,7 +10,7 @@ $ python3 src/denticheck_ai/pipelines/rag/retrieve.py
 
 [동작 순서]
 1. 사전에 `ingest.py`를 통해 Milvus DB에 지식이 적재되어 있어야 합니다.
-2. 질문을 임베딩(벡터화)하여 DB에서 가장 유사한 문서 조각(Top-K)을 찾습니다.
+2. 질문을 임베딩(벡터화)하여 DB(Milvus Standalone/Lite)에서 가장 유사한 문서 조각(Top-K)을 찾습니다.
 3. 거리 점수를 계산하여 '신뢰도(%)'와 함께 관련 문서를 반환합니다.
 """
 
@@ -33,7 +33,7 @@ class MilvusRetriever:
         초기화 메서드입니다.
         Milvus 및 임베딩 모델 연결 설정을 수행합니다.
         """
-        self.collection_name = "dental_knowledge"
+        self.collection_name = os.getenv("COLLECTION_NAME", "dental_knowledge")
         
         # 로컬 임베딩 모델 설정
         self.embeddings = HuggingFaceEmbeddings(
@@ -42,19 +42,19 @@ class MilvusRetriever:
             encode_kwargs={'normalize_embeddings': True}
         )
         
-        # Milvus Lite 경로 설정 (./ 형식을 사용하여 Lite 모드 보장)
-        self.milvus_path = "./data/milvus_dental.db"
+        # Milvus 연결 URI 설정 (Standalone URL 또는 Lite 파일 경로)
+        self.milvus_uri = os.getenv("MILVUS_URI", "./data/milvus_dental.db")
         
         self.vector_db = None
         try:
             self.vector_db = Milvus(
                 embedding_function=self.embeddings,
                 connection_args={
-                    "uri": self.milvus_path,
+                    "uri": self.milvus_uri,
                 },
                 collection_name=self.collection_name
             )
-            print(f"MilvusRetriever 초기화 완료 (Lite - {self.milvus_path})")
+            print(f"MilvusRetriever 초기화 완료 (URI: {self.milvus_uri})")
         except Exception as e:
             print(f"MilvusRetriever 연결 실패: {e}")
 

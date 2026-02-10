@@ -12,7 +12,7 @@ $ python3 src/denticheck_ai/pipelines/rag/ingest.py
 1. `data/snudh_knowledge.json` 파일을 읽어옵니다.
 2. 각 데이터를 LangChain의 `Document` 객체로 변환합니다.
 3. 로컬 임베딩 모델(`ko-sroberta`)을 로드합니다.
-4. Milvus Lite를 사용하여 `./data/milvus_dental.db` 파일에 벡터화를 거쳐 저장합니다.
+4. Milvus Standalone(또는 Lite)을 사용하여 벡터화된 데이터를 저장합니다.
 """
 
 import json
@@ -66,25 +66,25 @@ def ingest_data():
         encode_kwargs={'normalize_embeddings': True}
     )
 
-    # 4. Milvus 연결 및 적재 (Lite 방식 - 로컬 파일 저장)
-    # 별도의 서버 설치 없이 ./milvus_dental.db 파일에 저장됨
-    # ./ 로 시작하는 경로를 사용해야 Lite 모드로 안정적으로 인식됩니다.
-    milvus_path = "./data/milvus_dental.db"
-    collection_name = "dental_knowledge"
+    # 4. Milvus 연결 및 적재
+    # Standalone일 경우 uri는 'http://localhost:19530' 형태, 
+    # Lite일 경우 './data/milvus_dental.db' 형태입니다.
+    milvus_uri = os.getenv("MILVUS_URI", "./data/milvus_dental.db")
+    collection_name = os.getenv("COLLECTION_NAME", "dental_knowledge")
 
-    print(f"Milvus Lite 초기화 중... (데이터 저장소: {milvus_path})")
+    print(f"Milvus 연결 중... (URI: {milvus_uri})")
     
     try:
         vector_db = Milvus.from_documents(
             documents,
             embeddings,
             connection_args={
-                "uri": milvus_path,
+                "uri": milvus_uri,
             },
             collection_name=collection_name,
             drop_old=True # 기존 데이터 삭제 후 새로 적재
         )
-        print(f"성공적으로 {len(documents)}건의 지식을 Milvus Lite({milvus_path})에 적재했습니다.")
+        print(f"성공적으로 {len(documents)}건의 지식을 Milvus({milvus_uri})에 적재했습니다.")
     except Exception as e:
         print(f"[에러] Milvus 적재 실패: {e}")
 

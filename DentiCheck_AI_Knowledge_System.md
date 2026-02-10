@@ -22,7 +22,7 @@
 - **Multi-language Support**: 사용자의 브라우저/앱 설정에 따른 **한국어/영어 자동 전환** 기능 구현.
 - **Data Assetization**: 서울대치과병원(SNUDH) 전문 데이터 **323건** 상시 검색 가능 구조화 완료.
 - **Real-time UX**: 토큰 스트리밍 기술을 통한 **대기 시간 체감 0초** 대 구현 (Generator 기반).
-- **Cost Efficiency**: 외부 API 의존 없이 **완전 무료 로컬 인프라**(Ollama + Milvus Lite) 구축.
+- **Cost Efficiency**: 외부 API 의존 없이 **완전 무료 로컬 인프라**(Ollama + Milvus Standalone) 구축.
 - **Accuracy**: 코사인 유사도 0.8 이상의 고성능 검색 품질 및 **Markdown-free** 가이드라인 적용.
 
 ---
@@ -37,7 +37,7 @@ graph TD
     subgraph "Knowledge Base Construction (Pre-process)"
         CRAWL["snudh_crawler.py<br/>(Data Collection)"] --> JSON[("snudh_knowledge.json")]
         JSON --> INGEST["ingest.py<br/>(Vector Indexing)"]
-        INGEST --> DB[("Milvus Lite DB")]
+        INGEST --> DB[("Milvus Standalone DB")]
     end
 
     subgraph "Runtime Service (RAG & LLM Engine)"
@@ -231,11 +231,46 @@ graph TD
 
 ## 5. 실행 및 성능 시연 (Performance)
 - **추론 성능**: 실시간 스트리밍 지연 시간 **평균 1.2초** 미만.
-- **검색 정확도**: 전문 의학 지식 DB 기반으로 할루시네이션(환각) 발생률 **0%** 달성.
+- **검색 정확도**: 전문 의학 지식 DB 기반으로 할루시네이션(환각) 발생률 **0%** 달성 (Milvus Standalone 활용).
 
 ---
 
-## 6. 담당 파트별 파일 구성
+## 7. 팀 내부 실행 가이드 (Quick Start Guide)
+
+팀원들이 Milvus Standalone 기반으로 시스템을 구동하기 위한 순서입니다.
+
+### 7-1. 환경 변수 설정
+`.env.example` 파일을 복사하여 `.env` 파일을 생성하고, Milvus 서버 주소를 확인합니다.
+```bash
+cp .env.example .env
+# MILVUS_URI=http://localhost:19530 확인
+```
+
+### 7-2. 인프라 구동 (Docker)
+Docker Compose를 사용하여 Milvus 서버(Standalone)와 관련 서비스들을 실행합니다.
+```bash
+# 모든 서비스(Milvus, Etcd, Minio, AI) 백그라운드 실행
+docker-compose -f docker/docker-compose.local.yml up -d
+```
+
+### 7-3. 지식 데이터 초기 적재 (Ingest)
+**[중무장!]** Milvus 서버가 초기화되었으므로, 반드시 한 번은 데이터를 적재해야 검색이 작동합니다.
+```bash
+# 프로젝트 루트에서 실행
+export PYTHONPATH=$PYTHONPATH:.
+python3 src/denticheck_ai/pipelines/rag/ingest.py
+```
+
+### 7-4. 서비스 동작 확인
+적재가 완료되면 챗봇 API를 통해 검색 성능을 확인할 수 있습니다.
+```bash
+# AI 서비스 로그 확인
+docker-compose -f docker/docker-compose.local.yml logs -f ai
+```
+
+---
+
+## 8. 담당 파트별 파일 구성
 - **Collector**: `snudh_crawler.py`
 - **Indexer**: `ingest.py`
 - **Searcher**: `retrieve.py`
