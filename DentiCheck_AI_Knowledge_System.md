@@ -27,11 +27,34 @@
 
 ---
 
-## 2. 시스템 아키텍처 및 상세 컴포넌트 역할
+## 2. 기술 스택 (Technology Stack)
+
+### 2-1. 데이터베이스 (Database)
+- **PostgreSQL**: 사용자 정보, 세션 데이터 및 분석 결과(Decision Record) 저장
+- **Milvus Vector DB (Standalone)**: 고성능 벡터 검색 및 지식 베이스(RAG) 저장소
+
+### 2-2. AI 엔진 (Artificial Intelligence)
+- **Python 3.11**: 메인 로직 및 파이프라인 제어
+- **객체 탐지 (Object Detection)**: 
+  - **YOLO (Ultralytics)**: 치아 및 잇몸 상태 탐지 (Nano/Small 모델 활용)
+- **예측 및 분석 (Prediction)**:
+  - **ML (Scikit-learn, PyTorch)**: 설문 및 수치 데이터 기반 위험도 분석
+- **지식 비서 (RAG/LLM)**:
+  - **RAG (Milvus DB)** + **LLM (Ollama 3.1)**: 전문 지식 기반 상담 엔진
+
+### 2-3. NLG Tech Stack (자연어 생성)
+- **Engine**: **Ollama** (로컬 추론 서버)
+- **Model**: **Llama 3.1 (8B)** - 한국어와 영어 모두 문맥 파악 및 문장 구성 능력이 뛰어난 모델
+- **Pipeline**: **LangChain Expression Language (LCEL)** - 프롬프트, 모델, 출력 파서를 하나로 묶어 유연한 응답 생성
+- **Formatting**: **StrOutputParser** - 모델의 원시 응답을 깨끗한 텍스트 문자열로 정제
+
+---
+
+## 3. 시스템 아키텍처 및 상세 컴포넌트 역할
 
 전체 시스템은 **지식 데이터 준비 ➔ 검색 엔진 구축 ➔ 실제 상담 서비스** 순서로 유기적으로 작동합니다.
 
-### 2-1. 시스템 아키텍처 다이어그램
+### 3-1. 시스템 아키텍처 다이어그램
 ```mermaid
 graph TD
     subgraph "Knowledge Base Construction (Pre-process)"
@@ -57,12 +80,12 @@ graph TD
     SERVICE -->|Display| USER
 ```
 
-### 2-2. 실행 파일별 핵심 역할 (File Roles)
+### 3-2. 실행 파일별 핵심 역할 (File Roles)
 1. **`prompts.py` (AI의 대본/페르소나)**: AI의 **'성격'과 '답변 규칙'**을 정의합니다.
 2. **`client.py` (AI 통신 엔진)**: 로컬에 설치된 **Ollama 모델과 직접 대화**하는 창구입니다.
 3. **`service.py` (전체 프로세스 조율자)**: RAG 시스템의 **'두뇌'**이자 **'메인 컨트롤러'**입니다.
 
-### 2-4. Decision Record 생성 + LLM Input 투영
+### 3-3. Decision Record 생성 + LLM Input 투영
 > **중요:** “저장용 Decision Record”와 “LLM 입력(Llm Input)”을 분리합니다.
 > 
 > - **Decision Record**: 재현/감사/디버깅/히스토리까지 포함(풍부한 메타 포함 가능)
@@ -80,7 +103,7 @@ graph TD
     - 설문 결과: `answers_json`, (있다면) `risk_score`, `risk_level`
     - 히스토리(선택): 최근 N회 요약 + 직전 대비 변화량(delta)
 
-### 2-5. LLM (NLG 엔진)
+### 3-4. LLM (NLG 엔진)
 - **책임**
     - Decision JSON을 기반으로 **사용자 안내 문장 생성(NLG)** 및 출력 포맷 구성
     - “진단/확정”이 아니라 **스크리닝 안내 + 권고 + 다음 행동**으로 톤/안전 가드레일 유지
@@ -92,9 +115,9 @@ graph TD
 
 ---
 
-## 3. RAG 파이프라인 기술 심화 (Technical Deep-Dive)
+## 4. RAG 파이프라인 기술 심화 (Technical Deep-Dive)
 
-### 3-1. 지능형 크롤링 및 데이터 자산화 (JSON Data Assetization)
+### 4-1. 지능형 크롤링 및 데이터 자산화 (JSON Data Assetization)
 - **서울대치과병원(SNUDH) 전문 크롤링 데이터 323건**
     - **메인 사이트**: [서울대학교치과병원 (SNUDH)](https://www.snudh.org)
     - **진료상담 FAQ** : https://www.snudh.org/portal/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000258&menuNo=25010000
@@ -109,9 +132,9 @@ graph TD
 
 ---
 
-## 4. 출력 결과 규격 (Output Specification)
+## 5. 출력 결과 규격 (Output Specification)
 
-### 4-1. Decision Record (JSON, 저장용) 예시
+### 5-1. Decision Record (JSON, 저장용) 예시
 ```json
 {
   "meta": {
@@ -172,7 +195,7 @@ graph TD
 }
 ```
 
-### 4-2. LLM Input (JSON, NLG용 투영본) 예시
+### 5-2. LLM Input (JSON, NLG용 투영본) 예시
 ```json
 {
   "yolo": {
@@ -208,7 +231,7 @@ graph TD
 }
 ```
 
-### 4-3. Overall(룰 기반) 산출 규칙
+### 5-3. Overall(룰 기반) 산출 규칙
 - **원칙**: overall은 **모델/설문 결과를 “해석”하는 팀 내부 정책**이며, LLM이 새로 정하지 않는다.
 - **룰 예시(초안)**
     - `lesion.present == true` AND `lesion.max_score >= T_lesion_high` → `recommend_visit` + `lesion_caution_text_required=true`
@@ -216,7 +239,7 @@ graph TD
     - `periodontal.prob >= T_pd_high` → `recommend_visit`
     - (옵션) 설문 위험 점수 높으면 level 한 단계 상향
 
-### 4-4. 치과 전문 상담 챗봇 답변 예시 (RAG)
+### 5-4. 치과 전문 상담 챗봇 답변 예시 (RAG)
 **질문**: 사랑니는 무조건 뽑아야 하나요?
 **답변**:
 사랑니라고 해서 반드시 뽑아야 하는 것은 아닙니다. 하지만 다음과 같은 경우에는 발치를 권장합니다.
@@ -229,7 +252,7 @@ graph TD
 
 ---
 
-## 5. 실행 및 성능 시연 (Performance)
+## 6. 실행 및 성능 시연 (Performance)
 - **추론 성능**: 실시간 스트리밍 지연 시간 **평균 1.2초** 미만.
 - **검색 정확도**: 전문 의학 지식 DB 기반으로 할루시네이션(환각) 발생률 **0%** 달성 (Milvus Standalone 활용).
 
@@ -263,22 +286,15 @@ cp .env.example .env
 # MILVUS_URI=http://localhost:19530 확인
 ```
 
-### 7-2. 인프라 구동 (Docker)
-Docker Compose를 사용하여 Milvus 서버(Standalone)와 관련 서비스들을 실행합니다.
-```bash
-# 모든 서비스(Milvus, Etcd, Minio, AI) 백그라운드 실행
-docker-compose -f docker/docker-compose.local.yml up -d
-```
-
-### 7-3. 지식 데이터 초기 적재 (Ingest)
-**[중무장!]** Milvus 서버가 초기화되었으므로, 반드시 한 번은 데이터를 적재해야 검색이 작동합니다.
+### 7-5. 지식 데이터 초기 적재 (Ingest)
+**[중요!]** Milvus 서버가 초기화되었으므로, 반드시 한 번은 데이터를 적재해야 검색이 작동합니다.
 ```bash
 # 프로젝트 루트에서 실행
 export PYTHONPATH=$PYTHONPATH:.
 python3 src/denticheck_ai/pipelines/rag/ingest.py
 ```
 
-### 7-4. 서비스 동작 확인
+### 7-6. 서비스 동작 확인
 적재가 완료되면 챗봇 API를 통해 검색 성능을 확인할 수 있습니다.
 ```bash
 # AI 서비스 로그 확인
